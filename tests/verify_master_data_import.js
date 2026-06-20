@@ -262,7 +262,7 @@ async function runTests() {
         'Staff Type': 'Doctor',
         'Specialty': 'General Surgery',
         'Department': 'OT',
-        'License Number': 'DOC999'
+        'License Number': 'DOC999_' + timestamp
       },
       {
         'First Name': 'Test',

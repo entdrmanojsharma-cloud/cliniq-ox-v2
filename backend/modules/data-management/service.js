@@ -49,6 +49,10 @@ class DataManagementService {
         if (!name) itemErrors.push('Missing "Surgery Name"');
         if (!category) itemErrors.push('Missing "Category"');
 
+        if (code && code.length > 50) itemErrors.push('Surgery Code exceeds maximum length of 50 characters');
+        if (name && name.length > 150) itemErrors.push('Surgery Name exceeds maximum length of 150 characters');
+        if (category && category.length > 100) itemErrors.push('Category exceeds maximum length of 100 characters');
+
         let defaultSurgeonFee = 0;
         if (feeStr) {
           defaultSurgeonFee = Number(feeStr);
@@ -115,6 +119,9 @@ class DataManagementService {
         const itemErrors = [];
         if (!code) itemErrors.push('Missing "Diagnosis Code"');
         if (!name) itemErrors.push('Missing "Diagnosis Name"');
+
+        if (code && code.length > 50) itemErrors.push('Diagnosis Code exceeds maximum length of 50 characters');
+        if (name && name.length > 255) itemErrors.push('Diagnosis Name exceeds maximum length of 255 characters');
 
         if (code) {
           if (codesInSheet.has(code)) {
@@ -189,6 +196,15 @@ class DataManagementService {
         if (!username) itemErrors.push('Missing "Username"');
         if (!staffType) itemErrors.push('Missing "Staff Type"');
 
+        if (firstName && firstName.length > 100) itemErrors.push('First Name exceeds maximum length of 100 characters');
+        if (lastName && lastName.length > 100) itemErrors.push('Last Name exceeds maximum length of 100 characters');
+        if (username && username.length > 255) itemErrors.push('Username exceeds maximum length of 255 characters');
+        if (password && password.length > 255) itemErrors.push('Password exceeds maximum length of 255 characters');
+        if (staffType && staffType.length > 50) itemErrors.push('Staff Type exceeds maximum length of 50 characters');
+        if (specialty && specialty.length > 100) itemErrors.push('Specialty exceeds maximum length of 100 characters');
+        if (department && department.length > 100) itemErrors.push('Department exceeds maximum length of 100 characters');
+        if (licenseNumber && licenseNumber.length > 100) itemErrors.push('License Number exceeds maximum length of 100 characters');
+
         if (staffType && !ALLOWED_STAFF_TYPES.includes(staffType)) {
           itemErrors.push(`Invalid "Staff Type" "${staffType}". Allowed: ${ALLOWED_STAFF_TYPES.join(', ')}`);
         }
@@ -226,9 +242,39 @@ class DataManagementService {
         const existingUsers = await this.repository.findUsersByUsernames(usernames);
         const existingMap = new Map(existingUsers.map(u => [u.username, u]));
 
+        // Query doctors matching license numbers in this hospital
+        const licenseNumbers = report.toAdd
+          .map(r => r.licenseNumber)
+          .filter(l => l && l.length > 0);
+
+        const existingDocs = licenseNumbers.length > 0
+          ? await this.prisma.doctor.findMany({
+              where: {
+                hospitalId,
+                licenseNumber: { in: licenseNumbers }
+              },
+              include: { user: true }
+            })
+          : [];
+        const licenseMap = new Map(existingDocs.map(d => [d.licenseNumber, d]));
+
         const verifiedToAdd = [];
         for (const row of report.toAdd) {
           const match = existingMap.get(row.username);
+
+          // Check license number uniqueness
+          if (row.licenseNumber) {
+            const existingDoc = licenseMap.get(row.licenseNumber);
+            if (existingDoc) {
+              // If the existing doctor belongs to a DIFFERENT user, it is a collision!
+              if (!match || existingDoc.userId !== match.id) {
+                row.errors.push(`License Number "${row.licenseNumber}" is already registered for another doctor "${existingDoc.firstName} ${existingDoc.lastName || ''}"`);
+                report.errors.push(row);
+                continue;
+              }
+            }
+          }
+
           if (match) {
             if (match.hospitalId !== hospitalId) {
               row.errors.push(`Username "${row.username}" is globally taken by another hospital`);
