@@ -150,7 +150,7 @@ class SuperAdminController {
         throw err;
       }
 
-      const data = await this.superAdminService.clearTestData(hospitalId);
+      const data = await this.superAdminService.clearTestData(hospitalId, req.user.userId);
       return sendSuccess(res, 200, data);
     } catch (err) {
       next(err);

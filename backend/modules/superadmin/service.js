@@ -13,7 +13,7 @@ class SuperAdminService {
    *          Credit Notes, Advance Balances, Discount Codes, Audit Logs,
    *          Document Sequences, Pending Charges.
    */
-  async clearTestData(hospitalId) {
+  async clearTestData(hospitalId, currentUserId) {
     await this.prisma.$transaction(async (tx) => {
       // ── Discount Code sub-tables ───────────────────────────────────
       await tx.discountCodeAccessRequest.deleteMany({ where: { hospitalId } });
@@ -50,10 +50,68 @@ class SuperAdminService {
 
       // ── Patients ─────────────────────────────────────────────────────
       await tx.patient.deleteMany({ where: { hospitalId } });
+
+      // ── Notifications ────────────────────────────────────────────────
+      await tx.notification.deleteMany({ where: { hospitalId } }).catch(() => {});
+
+      // ── Master / Configuration Data Deletions (Factory Reset additions) ────
+      await tx.estimateTemplateItem.deleteMany({ where: { template: { hospitalId } } });
+      await tx.estimateTemplate.deleteMany({ where: { hospitalId } });
+      await tx.hospitalChargeMaster.deleteMany({ where: { hospitalId } });
+      await tx.otRoomMaster.deleteMany({ where: { hospitalId } });
+      await tx.roomMaster.deleteMany({ where: { hospitalId } });
+      await tx.diagnosisProcedure.deleteMany({ where: { diagnosis: { hospitalId } } });
+      await tx.diagnosisMaster.deleteMany({ where: { hospitalId } });
+      await tx.surgeryMaster.deleteMany({ where: { hospitalId } });
+
+      // ── Reset Billing Defaults to Zero ─────────────────────────────────────
+      await tx.billingDefaults.updateMany({
+        where: { hospitalId },
+        data: {
+          otCharges: 0,
+          gaCharges: 0,
+          laCharges: 0,
+          sedationCharges: 0,
+          assistantSurgeonCharges: 0,
+          surgeonCharges: 0,
+          roomCharges: 0,
+          icuCharges: 0,
+          wardCharges: 0,
+          nursingCharges: 0,
+          monitoringCharges: 0,
+          dressingCharges: 0,
+          consumableCharges: 0,
+          equipmentCharges: 0,
+          admissionCharges: 0,
+          registrationCharges: 0
+        }
+      });
+
+      // ── Password Reset Requests ────────────────────────────────────────────
+      await tx.passwordResetRequest.deleteMany({ where: { user: { hospitalId } } });
+
+      // ── Staff / Users Management Cleanup (preserving active admin) ─────────
+      if (currentUserId) {
+        // Delete all doctors except the logged in user
+        await tx.doctor.deleteMany({
+          where: {
+            hospitalId,
+            userId: { not: currentUserId }
+          }
+        });
+
+        // Delete all users except the logged in user
+        await tx.user.deleteMany({
+          where: {
+            hospitalId,
+            id: { not: currentUserId }
+          }
+        });
+      }
     }, { timeout: 60000 });
 
     return {
-      message: 'All test data cleared successfully. Master data (users, rooms, surgeries, charges, templates) has been preserved.'
+      message: 'System factory reset successfully. All transactional data, master records, configurations, templates, and staff logins have been cleared (except active admin credentials).'
     };
   }
 

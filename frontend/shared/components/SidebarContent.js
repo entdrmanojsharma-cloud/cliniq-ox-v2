@@ -279,11 +279,11 @@ function ClearDataButton({ onClose }) {
       setConfirmText('');
       if (onClose) onClose();
       Alert.alert(
-        '✅ Data Cleared',
-        'All patients, estimates, events, invoices, and billing records have been wiped.\n\nMaster data (users, rooms, surgeries, charges) is intact.'
+        '✅ Factory Reset Complete',
+        'All configurations, catalog masters, patients, estimates, invoices, and staff logins have been reset. Active admin session preserved.'
       );
     } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to clear data.');
+      Alert.alert('Error', err.message || 'Failed to factory reset.');
     } finally {
       setClearing(false);
     }
@@ -296,7 +296,7 @@ function ClearDataButton({ onClose }) {
         style={clearStyles.sidebarBtn}
         onPress={() => { setConfirmText(''); setShowModal(true); }}
       >
-        <Text style={clearStyles.sidebarBtnText}>🗑️ Clear Test Data</Text>
+        <Text style={clearStyles.sidebarBtnText}>🗑️ System Factory Reset</Text>
       </TouchableOpacity>
 
       {/* Confirmation modal */}
@@ -309,11 +309,11 @@ function ClearDataButton({ onClose }) {
         <Pressable style={clearStyles.overlay} onPress={() => setShowModal(false)}>
           <Pressable style={clearStyles.box} onPress={e => e.stopPropagation()}>
             <Text style={clearStyles.warningIcon}>⚠️</Text>
-            <Text style={clearStyles.title}>Clear All Test Data?</Text>
+            <Text style={clearStyles.title}>Factory Reset System?</Text>
             <Text style={clearStyles.body}>
               Permanently deletes:{'\n'}
-              Patients • Estimates • Invoices{'\n'}
-              Events • Receipts • Discount Codes{'\n\n'}
+              Schedules • Patients • Estimates • Invoices{'\n'}
+              Surgeries • Rooms & OTs • Staff Logins{'\n\n'}
               <Text style={{ color: '#ef4444', fontWeight: '800' }}>This cannot be undone.</Text>
             </Text>
 
@@ -346,7 +346,7 @@ function ClearDataButton({ onClose }) {
               >
                 {clearing
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={clearStyles.confirmText}>🗑️ Wipe Data</Text>
+                  : <Text style={clearStyles.confirmText}>🗑️ Factory Reset</Text>
                 }
               </TouchableOpacity>
             </View>

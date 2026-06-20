@@ -252,11 +252,11 @@ export function HospitalProfileScreen() {
       setClearConfirmText('');
       Alert.alert(
         '✅ Done!',
-        'All test data has been wiped.\n\nPatients, estimates, events, invoices, and billing records have been removed.\n\nMaster data (users, rooms, surgeries, charges) is intact.',
+        'All configurations and data have been factory reset successfully.\n\nAll patients, schedules, estimates, invoices, catalogs, and other staff accounts have been deleted. Active administrator session is preserved.',
         [{ text: 'OK' }]
       );
     } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to clear data.');
+      Alert.alert('Error', err.message || 'Failed to factory reset data.');
     } finally {
       setClearing(false);
     }
@@ -343,31 +343,25 @@ export function HospitalProfileScreen() {
             <View style={styles.dangerCardHeader}>
               <Text style={styles.dangerCardIcon}>🗑️</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.dangerCardTitle}>Clear All Test Data</Text>
-                <Text style={styles.dangerCardSubtitle}>Wipes all patient records for a clean end-to-end test run</Text>
+                <Text style={styles.dangerCardTitle}>System Factory Reset</Text>
+                <Text style={styles.dangerCardSubtitle}>Wipes all master configurations and transactional data</Text>
               </View>
             </View>
 
             <View style={styles.keepDeleteGrid}>
               <View style={styles.keepBox}>
                 <Text style={styles.keepBoxTitle}>✅ Kept</Text>
-                <Text style={styles.keepBoxItem}>• Users & Accounts</Text>
                 <Text style={styles.keepBoxItem}>• Hospital Profile</Text>
-                <Text style={styles.keepBoxItem}>• Surgeries Master</Text>
-                <Text style={styles.keepBoxItem}>• Rooms & OT Rooms</Text>
-                <Text style={styles.keepBoxItem}>• Hospital Charges</Text>
-                <Text style={styles.keepBoxItem}>• Billing Defaults</Text>
-                <Text style={styles.keepBoxItem}>• Estimate Templates</Text>
+                <Text style={styles.keepBoxItem}>• Active Admin User</Text>
               </View>
               <View style={styles.deleteBox}>
-                <Text style={styles.deleteBoxTitle}>🗑️ Deleted</Text>
-                <Text style={styles.deleteBoxItem}>• All Patients</Text>
-                <Text style={styles.deleteBoxItem}>• Calendar Events</Text>
-                <Text style={styles.deleteBoxItem}>• All Estimates</Text>
-                <Text style={styles.deleteBoxItem}>• All Invoices</Text>
-                <Text style={styles.deleteBoxItem}>• Receipts & Refunds</Text>
-                <Text style={styles.deleteBoxItem}>• Discount Codes</Text>
-                <Text style={styles.deleteBoxItem}>• Audit Logs</Text>
+                <Text style={styles.deleteBoxTitle}>🗑️ Deleted / Reset</Text>
+                <Text style={styles.deleteBoxItem}>• All Patients & Events</Text>
+                <Text style={styles.deleteBoxItem}>• Estimates & Invoices</Text>
+                <Text style={styles.deleteBoxItem}>• Surgeries, Rooms & OTs</Text>
+                <Text style={styles.deleteBoxItem}>• Templates & Charges</Text>
+                <Text style={styles.deleteBoxItem}>• Other Staff Logins</Text>
+                <Text style={styles.deleteBoxItem}>• Billing Defaults (to 0.00)</Text>
               </View>
             </View>
 
@@ -375,7 +369,7 @@ export function HospitalProfileScreen() {
               style={styles.clearBtn}
               onPress={() => { setClearConfirmText(''); setShowClearModal(true); }}
             >
-              <Text style={styles.clearBtnText}>🗑️  Clear All Test Data</Text>
+              <Text style={styles.clearBtnText}>🗑️  System Factory Reset</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -393,9 +387,9 @@ export function HospitalProfileScreen() {
             <View style={styles.modalWarningBadge}>
               <Text style={styles.modalWarningIcon}>⚠️</Text>
             </View>
-            <Text style={styles.modalTitle}>Confirm Data Wipe</Text>
+            <Text style={styles.modalTitle}>Confirm Factory Reset</Text>
             <Text style={styles.modalBody}>
-              This will permanently delete all patients, estimates, calendar events, invoices, and billing records for your hospital.
+              This will permanently delete all patients, estimates, calendar events, invoices, billing records, surgery catalogs, templates, and other staff profiles for your hospital.
               {`\n\n`}
               <Text style={{ fontWeight: '800', color: '#ef4444' }}>This cannot be undone.</Text>
             </Text>
@@ -433,7 +427,7 @@ export function HospitalProfileScreen() {
                 {clearing ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>🗑️ Yes, Clear Everything</Text>
+                  <Text style={styles.modalConfirmText}>🗑️ Yes, Factory Reset Everything</Text>
                 )}
               </TouchableOpacity>
             </View>
