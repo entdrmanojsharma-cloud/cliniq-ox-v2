@@ -158,6 +158,7 @@ model HospitalProfile {
   discountCodeAuditLogs       DiscountCodeAuditLog[]
   adminDiscountCodeEditLogs   AdminDiscountCodeEditLog[]
   discountCodeAccessRequests  DiscountCodeAccessRequest[]
+  importHistories             ImportHistory[]
 
   @@map("hospital_profile")
 }
@@ -208,6 +209,7 @@ model User {
   requestedAccessRequests     DiscountCodeAccessRequest[] @relation("RequestedByUser")
   approvedAccessRequests      DiscountCodeAccessRequest[] @relation("ApprovedByUser")
   notifications               Notification[]
+  importHistories             ImportHistory[]
 
   @@map("users")
 }
@@ -1075,4 +1077,22 @@ model Notification {
   user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+model ImportHistory {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId   String   @map("hospital_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  importType   String   @map("import_type") @db.VarChar(50) // "SURGERY" | "DIAGNOSIS" | "STAFF"
+  fileName     String   @map("file_name") @db.VarChar(255)
+  addedCount   Int      @default(0) @map("added_count")
+  updatedCount Int      @default(0) @map("updated_count")
+  errorCount   Int      @default(0) @map("error_count")
+  status       String   @default("SUCCESS") @map("status") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  hospital     HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("import_history")
 }

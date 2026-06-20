@@ -32,7 +32,11 @@ class SuperAdminService {
       await tx.refund.deleteMany({ where: { hospitalId } });
       await tx.receipt.deleteMany({ where: { hospitalId } });
       await tx.creditNote.deleteMany({ where: { hospitalId } });
-      await tx.paymentAllocation.deleteMany({ where: { hospitalId } }).catch(() => {});
+      await tx.paymentAllocation.deleteMany({
+        where: {
+          invoice: { hospitalId }
+        }
+      });
       await tx.invoice.deleteMany({ where: { hospitalId } });
       await tx.advanceBalance.deleteMany({ where: { hospitalId } });
 
@@ -68,22 +72,22 @@ class SuperAdminService {
       await tx.billingDefaults.updateMany({
         where: { hospitalId },
         data: {
-          otCharges: 0,
-          gaCharges: 0,
-          laCharges: 0,
-          sedationCharges: 0,
-          assistantSurgeonCharges: 0,
-          surgeonCharges: 0,
-          roomCharges: 0,
-          icuCharges: 0,
-          wardCharges: 0,
-          nursingCharges: 0,
-          monitoringCharges: 0,
-          dressingCharges: 0,
-          consumableCharges: 0,
-          equipmentCharges: 0,
-          admissionCharges: 0,
-          registrationCharges: 0
+          otCharge: 0,
+          gaCharge: 0,
+          localAnaesthesiaCharge: 0,
+          sedationCharge: 0,
+          surgeonCharge: 0,
+          assistantSurgeonCharge: 0,
+          roomCharge: 0,
+          icuCharge: 0,
+          wardCharge: 0,
+          nursingCharge: 0,
+          monitoringCharge: 0,
+          dressingCharge: 0,
+          consumableCharge: 0,
+          equipmentCharge: 0,
+          admissionCharge: 0,
+          registrationCharge: 0
         }
       });
 

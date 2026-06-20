@@ -416,8 +416,20 @@ const dashboardService = new DashboardService(prisma);
 const dashboardController = new DashboardController(dashboardService);
 const dashboardRouter = createDashboardRouter(dashboardController);
 
+// --- Data Management Module ---
+const DataManagementRepository = require('./modules/data-management/repository');
+const DataManagementService = require('./modules/data-management/service');
+const DataManagementController = require('./modules/data-management/controller');
+const createDataManagementRouter = require('./modules/data-management/routes');
+
+const dataManagementRepo = new DataManagementRepository(prisma);
+const dataManagementService = new DataManagementService(dataManagementRepo, prisma);
+const dataManagementController = new DataManagementController(dataManagementService);
+const dataManagementRouter = createDataManagementRouter(dataManagementController);
+
 // --- Mount Routes ---
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/data-management', dataManagementRouter);
 app.use('/api/v1/superadmin', superAdminRouter);
 app.use('/api/v1/hospital-profile', hospitalProfileRouter);
 app.use('/api/v1/patients', patientsRouter);

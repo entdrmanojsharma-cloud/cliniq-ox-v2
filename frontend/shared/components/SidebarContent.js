@@ -24,6 +24,7 @@ export function SidebarContent({ navigation, onClose }) {
     billing: true,
     config: false,
     clinical: true,
+    admin: false,
   });
 
   const toggle = (menu) => {
@@ -191,12 +192,6 @@ export function SidebarContent({ navigation, onClose }) {
               <Text style={styles.bullet}>•</Text>
               <Text style={styles.submenuText}>Hospital Profile</Text>
             </TouchableOpacity>
-            {role === 'ADMIN' && (
-              <TouchableOpacity style={styles.submenuItem} onPress={() => nav('AddStaff')}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.submenuText}>Staff Management</Text>
-              </TouchableOpacity>
-            )}
             {(role === 'DOCTOR' || role === 'ADMIN') && (
               <TouchableOpacity style={styles.submenuItem} onPress={() => nav('DiscountCodes')}>
                 <Text style={styles.bullet}>•</Text>
@@ -220,6 +215,21 @@ export function SidebarContent({ navigation, onClose }) {
             <TouchableOpacity style={styles.submenuItem} onPress={() => nav('DocumentsList')}>
               <Text style={styles.bullet}>•</Text>
               <Text style={styles.submenuText}>Documents Hub</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 5. Administration Menu */}
+        {(role === 'ADMIN' || role === 'SUPER_ADMIN') && renderHeader('🛡️', 'Administration', expanded.admin, () => toggle('admin'))}
+        {(role === 'ADMIN' || role === 'SUPER_ADMIN') && expanded.admin && (
+          <View style={styles.submenu}>
+            <TouchableOpacity style={styles.submenuItem} onPress={() => nav('AddStaff')}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.submenuText}>Staff Management</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.submenuItem} onPress={() => nav('DataManagement')}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.submenuText}>Data Management</Text>
             </TouchableOpacity>
           </View>
         )}

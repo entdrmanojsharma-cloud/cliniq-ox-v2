@@ -26,6 +26,7 @@ import { LoginScreen, ChangePasswordScreen } from './features/auth/screens';
 import { SuperAdminDashboardScreen } from './features/dashboard/SuperAdminDashboardScreen';
 import { useAuthStore } from './features/auth/store';
 import { AddStaffScreen } from './features/auth/AddStaffScreen';
+import { DataManagementScreen } from './features/data-management/screens';
 import { useAlertStore } from './shared/utils/alertStore';
 import { AlertModal } from './shared/components/AlertModal';
 
@@ -428,6 +429,7 @@ export default function App() {
 
               {/* Admin Add Staff Portal */}
               <Stack.Screen name="AddStaff" component={AddStaffScreen} options={{ title: 'Create Staff User' }} />
+              <Stack.Screen name="DataManagement" component={DataManagementScreen} options={{ title: 'Data Management' }} />
               <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ title: 'Change Your Password' }} />
 
               {/* Notifications */}
