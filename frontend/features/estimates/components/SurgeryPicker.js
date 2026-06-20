@@ -1,0 +1,276 @@
+/**
+ * SurgeryPicker.js
+ * Reusable surgery search + select component.
+ * - Searches surgery master live
+ * - Shows name, code, default fee
+ * - ADMIN/DOCTOR can quick-save a new surgery inline
+ */
+import React, { useState } from 'react';
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ActivityIndicator, Modal, Pressable, Alert, ScrollView
+} from 'react-native';
+import { api } from '../../../shared/utils/api';
+import { theme } from '../../../shared/styles/theme';
+
+export function SurgeryPicker({ role, onSelect, selectedSurgeries = [], placeholder = 'Search surgery catalog...' }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  // Quick-save new surgery fields
+  const [newName, setNewName] = useState('');
+  const [newCategory, setNewCategory] = useState('General');
+  const [newFee, setNewFee] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const canSave = role === 'ADMIN' || role === 'DOCTOR';
+  const selectedIds = selectedSurgeries.map(s => s.surgeryId);
+
+  const search = async (text) => {
+    setQuery(text);
+    setSearching(true);
+    try {
+      const data = await api.get(`/surgeries?search=${encodeURIComponent(text)}&limit=50`);
+      setResults(data.surgeries || []);
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (open) {
+      search('');
+    }
+  }, [open]);
+
+  const handleSelect = (surgery) => {
+    onSelect({
+      surgeryId: surgery.id,
+      surgeryName: surgery.surgeryName,
+      surgeryCode: surgery.surgeryCode,
+      defaultFee: Number(surgery.defaultSurgeonFee || 0),
+      surgeryCost: Number(surgery.defaultSurgeonFee || 0),
+      discountType: 'PERCENTAGE',
+      discountValue: 0,
+      durationMinutes: 0
+    });
+    setQuery('');
+    setResults([]);
+    setOpen(false);
+  };
+
+  const handleQuickSave = async () => {
+    if (!newName.trim()) return Alert.alert('Required', 'Surgery name is required.');
+    setSaving(true);
+    try {
+      const saved = await api.post('/surgeries', {
+        surgeryName: newName.trim(),
+        surgeryCode: newName.trim().toUpperCase().replace(/\s+/g, '-').slice(0, 20),
+        category: newCategory || 'General',
+        defaultSurgeonFee: Number(newFee) || 0
+      });
+      Alert.alert('Saved', `"${newName}" added to surgery master.`);
+      handleSelect({
+        id: saved.surgery?.id || saved.id,
+        surgeryName: newName.trim(),
+        surgeryCode: newName.trim().toUpperCase().replace(/\s+/g, '-').slice(0, 20),
+        defaultSurgeonFee: Number(newFee) || 0
+      });
+      setShowSaveModal(false);
+      setNewName(''); setNewCategory('General'); setNewFee('');
+    } catch (err) {
+      Alert.alert('Save Failed', err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+
+    <View>
+      <TouchableOpacity style={styles.triggerBtn} onPress={() => setOpen(true)} activeOpacity={0.8}>
+        <Text style={styles.triggerText}>{placeholder}</Text>
+        <Text style={{ color: '#666', fontSize: 12 }}>▼</Text>
+      </TouchableOpacity>
+
+
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <TouchableOpacity activeOpacity={1} style={styles.modalOverlaySearch} onPress={() => setOpen(false)}>
+          <TouchableOpacity activeOpacity={1} style={styles.modalContentSearch} onPress={e => e.stopPropagation()}>
+            {/* Search input */}
+            <View style={styles.searchRow}>
+              <TextInput
+                style={styles.searchInputModal}
+                value={query}
+                onChangeText={search}
+                placeholder="Type to search..."
+                placeholderTextColor={theme.colors.textMuted}
+                autoFocus
+              />
+              {searching && <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginLeft: 8 }} />}
+            </View>
+
+            {/* Results dropdown */}
+            <View style={styles.dropdownModal}>
+              <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps="handled">
+                {results.length > 0 ? results.map(s => {
+                  const alreadySelected = selectedIds.includes(s.id);
+                  return (
+                    <TouchableOpacity
+                      key={s.id}
+                      style={[styles.resultItem, alreadySelected && styles.resultItemDisabled]}
+                      onPress={() => !alreadySelected && handleSelect(s)}
+                      disabled={alreadySelected}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.resultName}>{s.surgeryName}</Text>
+                        <Text style={styles.resultMeta}>{s.surgeryCode} · {s.category}</Text>
+                      </View>
+                      <Text style={styles.resultFee}>₹{Number(s.defaultSurgeonFee || 0).toLocaleString('en-IN')}</Text>
+                      {alreadySelected && <Text style={styles.addedTag}>✓ Added</Text>}
+                    </TouchableOpacity>
+                  );
+                }) : (
+                  query.trim().length > 0 && !searching && (
+                    <Text style={{ padding: 16, color: theme.colors.textMuted, textAlign: 'center' }}>No results found.</Text>
+                  )
+                )}
+
+                {/* Not in list? Quick save option */}
+                {query.trim().length > 0 && (
+                  <TouchableOpacity
+                    style={[styles.notInListBtn, !canSave && styles.notInListBtnDisabled]}
+                    onPress={() => {
+                      if (!canSave) {
+                        Alert.alert('Permission Required', 'Only Doctors and Admins can add new surgeries to the master.');
+                        return;
+                      }
+                      setNewName(query);
+                      setShowSaveModal(true);
+                    }}
+                  >
+                    <Text style={[styles.notInListText, !canSave && styles.notInListTextDisabled]}>
+                      {canSave ? `✚ Save "${query}" as new surgery` : `🔒 "${query}" not found (Admin/Doctor can add)`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Quick-save modal */}
+      <Modal visible={showSaveModal} transparent animationType="slide" onRequestClose={() => setShowSaveModal(false)}>
+        <TouchableOpacity activeOpacity={1} style={styles.modalOverlay} onPress={() => setShowSaveModal(false)}>
+          <TouchableOpacity activeOpacity={1} style={styles.modalSheet} onPress={e => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>➕ Save New Surgery</Text>
+
+            <Text style={styles.label}>Surgery Name *</Text>
+            <TextInput style={styles.input} value={newName} onChangeText={setNewName}
+              placeholder="e.g. Appendectomy" placeholderTextColor={theme.colors.textMuted} />
+
+            <Text style={styles.label}>Category</Text>
+            <View style={styles.categoryRow}>
+              {['General', 'ENT', 'Ortho', 'Gynae', 'Cardio', 'Neuro', 'Urology', 'Other'].map(cat => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.catChip, newCategory === cat && styles.catChipActive]}
+                  onPress={() => setNewCategory(cat)}
+                >
+                  <Text style={[styles.catChipText, newCategory === cat && styles.catChipTextActive]}>{cat}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.label}>Default Surgeon Fee (₹)</Text>
+            <TextInput style={styles.input} value={newFee} onChangeText={setNewFee}
+              keyboardType="numeric" placeholder="e.g. 15000" placeholderTextColor={theme.colors.textMuted} />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowSaveModal(false)}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleQuickSave} disabled={saving}>
+                {saving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.saveBtnText}>Save & Select</Text>}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  triggerBtn: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc', borderRadius: 4,
+    paddingVertical: 10, paddingHorizontal: 12, minHeight: 40
+  },
+  triggerText: { flex: 1, color: '#333', fontSize: 13 },
+
+  modalOverlaySearch: { flex: 1, backgroundColor: 'transparent', justifyContent: 'center', padding: 20 },
+  modalContentSearch: { 
+    backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#ccc',
+    maxHeight: '80%', shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2, shadowRadius: 8, elevation: 8
+  },
+
+  searchRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#eee', paddingRight: 12 },
+  searchInputModal: {
+    flex: 1, color: '#333', padding: 16, fontSize: 15,
+  },
+  dropdownModal: { overflow: 'hidden' },
+  resultItem: {
+    flexDirection: 'row', alignItems: 'center', padding: 12,
+    borderBottomWidth: 1, borderBottomColor: theme.colors.border + '60'
+  },
+  resultItemDisabled: { opacity: 0.4 },
+  resultName: { color: theme.colors.text, fontWeight: '600', fontSize: 14 },
+  resultMeta: { color: theme.colors.textMuted, fontSize: 11, marginTop: 1 },
+  resultFee: { color: theme.colors.success, fontWeight: '700', fontSize: 13, marginLeft: 8 },
+  addedTag: { color: theme.colors.primary, fontSize: 11, fontWeight: '700', marginLeft: 6 },
+  notInListBtn: {
+    padding: 12, backgroundColor: theme.colors.primary + '15',
+    borderTopWidth: 1, borderTopColor: theme.colors.border + '60'
+  },
+  notInListBtnDisabled: { backgroundColor: theme.colors.border + '30' },
+  notInListText: { color: theme.colors.primary, fontWeight: '600', fontSize: 13, textAlign: 'center' },
+  notInListTextDisabled: { color: theme.colors.textMuted },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: theme.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 20, borderWidth: 1, borderColor: theme.colors.border
+  },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: theme.colors.text, marginBottom: 14 },
+  label: { color: theme.colors.text, fontWeight: '600', fontSize: 12, marginTop: 10, marginBottom: 4 },
+  input: {
+    backgroundColor: theme.colors.background, color: theme.colors.text, padding: 12,
+    borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, fontSize: 14, minHeight: 44
+  },
+  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
+  catChip: {
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20,
+    backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.border
+  },
+  catChipActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
+  catChipText: { color: theme.colors.textMuted, fontSize: 12, fontWeight: '600' },
+  catChipTextActive: { color: '#fff' },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  cancelBtn: {
+    flex: 1, backgroundColor: theme.colors.background, padding: 14, borderRadius: 10,
+    alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border
+  },
+  cancelBtnText: { color: theme.colors.textMuted, fontWeight: '600' },
+  saveBtn: { flex: 2, backgroundColor: theme.colors.success, padding: 14, borderRadius: 10, alignItems: 'center' },
+  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 }
+});

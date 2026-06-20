@@ -1,0 +1,560 @@
+/* 
+  Purpose: Define PostgreSQL schema models and enums for Cliniq-OX using Prisma.
+  Responsibility: Map database tables, relations, constraints, and indexes.
+*/
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  RECEPTIONIST
+  DOCTOR
+  ADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum EventType {
+  SURGERY
+  OPD
+  IPD
+  MEETING
+  LEAVE
+  CONFERENCE
+  ADMINISTRATIVE
+  OTHER
+}
+
+enum EventStatus {
+  PENDING
+  APPROVED
+  CANCELLED
+  COMPLETED
+}
+
+enum UnitType {
+  FIXED
+  PER_HOUR
+  PER_DAY
+}
+
+enum PendingChargeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EstimateStatus {
+  DRAFT
+  APPROVED
+  LOCKED
+  CANCELLED
+}
+
+enum Visibility {
+  GLOBAL
+  PRIVATE
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum ItemGroup {
+  SURGERY
+  OT_CHARGE
+  ANAESTHESIA
+  ROOM
+  NURSING
+  ICU
+  OT_MEDICATION
+  CONSUMABLE
+  ADDITIONAL
+  PACKAGE
+  CUSTOM
+}
+
+enum TemplateItemType {
+  SURGERY_FEE
+  OT_CHARGE
+  ANAESTHESIA
+  ROOM_CHARGE
+  NURSING
+  ICU
+  ADDITIONAL
+}
+
+model HospitalProfile {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code               String   @unique @db.VarChar(20)
+  name               String   @db.VarChar(150)
+  address            String   @db.Text
+  gstNumber          String?  @unique @map("gst_number") @db.VarChar(50)
+  phone              String   @db.VarChar(20)
+  email              String   @db.VarChar(100)
+  logoUrl            String?  @map("logo_url") @db.VarChar(255)
+  currency           String   @default("INR") @db.VarChar(10)
+  defaultGstRate     Decimal  @default(18.00) @map("default_gst_rate") @db.Decimal(5, 2)
+  estimatePrefix     String   @default("EST") @map("estimate_prefix") @db.VarChar(10)
+  invoicePrefix      String   @default("INV") @map("invoice_prefix") @db.VarChar(10)
+  receiptPrefix      String   @default("REC") @map("receipt_prefix") @db.VarChar(10)
+  financialYearStart String   @default("04-01") @map("financial_year_start") @db.VarChar(10)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  users           User[]
+  doctors         Doctor[]
+  patients        Patient[]
+  calendarEvents  CalendarEvent[]
+  surgeries       SurgeryMaster[]
+  otRooms         OtRoomMaster[]
+  rooms           RoomMaster[]
+  hospitalCharges HospitalChargeMaster[]
+  pendingCharges  PendingMasterCharge[]
+  estimates       Estimate[]
+  templates       EstimateTemplate[]
+  auditLogs       AuditLog[]
+
+  @@map("hospital_profile")
+}
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId   String   @map("hospital_id") @db.Uuid
+  email        String   @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  role         Role
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  hospital               HospitalProfile        @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  doctorProfile          Doctor?
+  createdEvents          CalendarEvent[]        @relation("CreatedBy")
+  approvedEvents         CalendarEvent[]        @relation("ApprovedBy")
+  deletedEvents          CalendarEvent[]        @relation("DeletedByCalendar")
+  deletedDoctors         Doctor[]               @relation("DeletedByDoctor")
+  deletedPatients        Patient[]              @relation("DeletedByPatient")
+  deletedSurgeries       SurgeryMaster[]        @relation("DeletedBySurgery")
+  deletedOtRooms         OtRoomMaster[]         @relation("DeletedByOtRoom")
+  deletedRooms           RoomMaster[]           @relation("DeletedByRoom")
+  deletedCharges         HospitalChargeMaster[] @relation("DeletedByCharge")
+  createdPendingCharges  PendingMasterCharge[]  @relation("CreatedByPendingCharge")
+  deletedPendingCharges  PendingMasterCharge[]  @relation("DeletedByPendingCharge")
+  approvedEstimates      Estimate[]             @relation("ApprovedByEstimate")
+  deletedEstimates       Estimate[]             @relation("DeletedByEstimate")
+  deletedEstSurgeries    EstimateSurgery[]      @relation("DeletedByEstSurgery")
+  deletedEstItems        EstimateItem[]         @relation("DeletedByEstItem")
+  createdEstVersions     EstimateVersion[]      @relation("CreatedByVersion")
+  createdTemplates       EstimateTemplate[]     @relation("CreatedByTemplate")
+  deletedTemplates       EstimateTemplate[]     @relation("DeletedByTemplate")
+  auditLogs              AuditLog[]
+
+  @@unique([hospitalId, email])
+  @@map("users")
+}
+
+model Doctor {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId         String   @map("hospital_id") @db.Uuid
+  userId             String   @unique @map("user_id") @db.Uuid
+  firstName          String   @map("first_name") @db.VarChar(100)
+  lastName           String   @map("last_name") @db.VarChar(100)
+  specialty          String   @db.VarChar(100)
+  licenseNumber      String   @map("license_number") @db.VarChar(100)
+  defaultSurgeonFee  Decimal  @default(0.00) @map("default_surgeon_fee") @db.Decimal(10, 2)
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy          String?  @map("deleted_by") @db.Uuid
+
+  hospital       HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deleter        User?           @relation("DeletedByDoctor", fields: [deletedBy], references: [id], onDelete: SetNull)
+  calendarEvents CalendarEvent[]
+
+  @@unique([hospitalId, licenseNumber])
+  @@map("doctors")
+}
+
+model Patient {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId      String   @map("hospital_id") @db.Uuid
+  uhid            String   @db.VarChar(100)
+  name            String   @db.VarChar(150)
+  dateOfBirth     DateTime @map("date_of_birth") @db.Date
+  gender          Gender
+  mobile          String   @db.VarChar(20)
+  address         String?  @db.Text
+  referringDoctor String?  @map("referring_doctor") @db.VarChar(150)
+  notes           String?  @db.Text
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy       String?  @map("deleted_by") @db.Uuid
+
+  hospital       HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  deleter        User?           @relation("DeletedByPatient", fields: [deletedBy], references: [id], onDelete: SetNull)
+  calendarEvents CalendarEvent[]
+
+  @@unique([hospitalId, uhid])
+  @@index([hospitalId, mobile])
+  @@index([hospitalId, name])
+  @@map("patients")
+}
+
+model CalendarEvent {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId     String      @map("hospital_id") @db.Uuid
+  eventType      EventType   @map("event_type")
+  eventStatus    EventStatus @default(PENDING) @map("event_status")
+  title          String      @db.VarChar(255)
+  startTime      DateTime    @map("start_time") @db.Timestamptz
+  endTime        DateTime    @map("end_time") @db.Timestamptz
+  doctorId       String?     @map("doctor_id") @db.Uuid
+  otRoomId       String?     @map("ot_room_id") @db.Uuid
+  patientId      String?     @map("patient_id") @db.Uuid
+  recurrenceRule String?     @map("recurrence_rule") @db.VarChar(255)
+  createdBy      String      @map("created_by") @db.Uuid
+  approvedBy     String?     @map("approved_by") @db.Uuid
+  approvedAt     DateTime?   @map("approved_at") @db.Timestamptz
+  isActive       Boolean     @default(true) @map("is_active")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz
+  deletedBy      String?     @map("deleted_by") @db.Uuid
+
+  hospital HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  doctor   Doctor?         @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  otRoom   OtRoomMaster?   @relation(fields: [otRoomId], references: [id], onDelete: SetNull)
+  patient  Patient?        @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  creator  User            @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  approver User?           @relation("ApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
+  deleter  User?           @relation("DeletedByCalendar", fields: [deletedBy], references: [id], onDelete: SetNull)
+  estimate Estimate?
+
+  @@index([hospitalId, startTime, endTime, doctorId, otRoomId])
+  @@map("calendar_events")
+}
+
+model SurgeryMaster {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId        String   @map("hospital_id") @db.Uuid
+  surgeryCode       String   @map("surgery_code") @db.VarChar(50)
+  surgeryName       String   @map("surgery_name") @db.VarChar(150)
+  category          String   @db.VarChar(100)
+  defaultSurgeonFee Decimal  @default(0.00) @map("default_surgeon_fee") @db.Decimal(10, 2)
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy         String?  @map("deleted_by") @db.Uuid
+
+  hospital          HospitalProfile    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  deleter           User?              @relation("DeletedBySurgery", fields: [deletedBy], references: [id], onDelete: SetNull)
+  estimateSurgeries EstimateSurgery[]
+
+  @@unique([hospitalId, surgeryCode])
+  @@map("surgery_master")
+}
+
+model OtRoomMaster {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId          String   @map("hospital_id") @db.Uuid
+  roomName            String   @map("room_name") @db.VarChar(150)
+  defaultHourlyCharge Decimal  @default(0.00) @map("default_hourly_charge") @db.Decimal(10, 2)
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy           String?  @map("deleted_by") @db.Uuid
+
+  hospital       HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  deleter        User?           @relation("DeletedByOtRoom", fields: [deletedBy], references: [id], onDelete: SetNull)
+  calendarEvents CalendarEvent[]
+
+  @@unique([hospitalId, roomName])
+  @@map("ot_rooms_master")
+}
+
+model RoomMaster {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId         String   @map("hospital_id") @db.Uuid
+  roomName           String   @map("room_name") @db.VarChar(150)
+  roomType           String   @map("room_type") @db.VarChar(100)
+  defaultDailyCharge Decimal  @default(0.00) @map("default_daily_charge") @db.Decimal(10, 2)
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy          String?  @map("deleted_by") @db.Uuid
+
+  hospital  HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  deleter   User?           @relation("DeletedByRoom", fields: [deletedBy], references: [id], onDelete: SetNull)
+  estimates Estimate[]
+
+  @@unique([hospitalId, roomName])
+  @@map("rooms_master")
+}
+
+model HospitalChargeMaster {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId     String   @map("hospital_id") @db.Uuid
+  chargeName     String   @map("charge_name") @db.VarChar(150)
+  chargeCategory String   @map("charge_category") @db.VarChar(100)
+  defaultRate    Decimal  @default(0.00) @map("default_rate") @db.Decimal(10, 2)
+  unitType       UnitType @map("unit_type")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy      String?  @map("deleted_by") @db.Uuid
+
+  hospital HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  deleter  User?           @relation("DeletedByCharge", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  @@unique([hospitalId, chargeName])
+  @@map("hospital_charges_master")
+}
+
+model PendingMasterCharge {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId     String              @map("hospital_id") @db.Uuid
+  status         PendingChargeStatus @default(PENDING)
+  chargeName     String              @map("charge_name") @db.VarChar(150)
+  chargeCategory String              @map("charge_category") @db.VarChar(100)
+  defaultRate    Decimal             @default(0.00) @map("default_rate") @db.Decimal(10, 2)
+  unitType       UnitType            @map("unit_type")
+  createdBy      String              @map("created_by") @db.Uuid
+  isActive       Boolean             @default(true) @map("is_active")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?           @map("deleted_at") @db.Timestamptz
+  deletedBy      String?             @map("deleted_by") @db.Uuid
+
+  hospital HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  creator  User            @relation("CreatedByPendingCharge", fields: [createdBy], references: [id], onDelete: Restrict)
+  deleter  User?           @relation("DeletedByPendingCharge", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  @@map("pending_master_charges")
+}
+
+model Estimate {
+  id                          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId                  String         @map("hospital_id") @db.Uuid
+  estimateNumber              String         @map("estimate_number") @db.VarChar(100)
+  eventId                     String         @unique @map("event_id") @db.Uuid
+  roomId                      String?        @map("room_id") @db.Uuid
+  status                      EstimateStatus @default(DRAFT)
+  billingStatus               String         @default("UNBILLED") @map("billing_status") @db.VarChar(50)
+  expectedDurationMinutes     Int            @default(0) @map("expected_duration_minutes")
+  expectedStayDays            Int            @default(0) @map("expected_stay_days")
+  icuDays                     Int            @default(0) @map("icu_days")
+  icuDailyRate                Decimal        @default(0.00) @map("icu_daily_rate") @db.Decimal(10, 2)
+  calculatedOtCharge          Decimal        @default(0.00) @map("calculated_ot_charge") @db.Decimal(10, 2)
+  actualOtCharge              Decimal        @default(0.00) @map("actual_ot_charge") @db.Decimal(10, 2)
+  otDiscountType              DiscountType?  @default(PERCENTAGE) @map("ot_discount_type")
+  otDiscountValue             Decimal        @default(0.00) @map("ot_discount_value") @db.Decimal(10, 2)
+  otDiscountAmount            Decimal        @default(0.00) @map("ot_discount_amount") @db.Decimal(10, 2)
+  calculatedAnaesthesiaCharge  Decimal        @default(0.00) @map("calculated_anaesthesia_charge") @db.Decimal(10, 2)
+  actualAnaesthesiaCharge      Decimal        @default(0.00) @map("actual_anaesthesia_charge") @db.Decimal(10, 2)
+  anaesthesiaDiscountPct      Decimal        @default(0.00) @map("anaesthesia_discount_pct") @db.Decimal(5, 2)
+  anaesthesiaDiscountType     DiscountType?  @default(PERCENTAGE) @map("anaesthesia_discount_type")
+  anaesthesiaDiscountValue    Decimal        @default(0.00) @map("anaesthesia_discount_value") @db.Decimal(10, 2)
+  anaesthesiaDiscountAmount   Decimal        @default(0.00) @map("anaesthesia_discount_amount") @db.Decimal(10, 2)
+  roomDailyRate               Decimal        @default(0.00) @map("room_daily_rate") @db.Decimal(10, 2)
+  roomOriginalAmount          Decimal        @default(0.00) @map("room_original_amount") @db.Decimal(10, 2)
+  roomDiscountType            DiscountType?  @default(PERCENTAGE) @map("room_discount_type")
+  roomDiscountValue           Decimal        @default(0.00) @map("room_discount_value") @db.Decimal(10, 2)
+  roomDiscountAmount          Decimal        @default(0.00) @map("room_discount_amount") @db.Decimal(10, 2)
+  roomFinalAmount             Decimal        @default(0.00) @map("room_final_amount") @db.Decimal(10, 2)
+  nursingDailyRate            Decimal        @default(0.00) @map("nursing_daily_rate") @db.Decimal(10, 2)
+  nursingOriginalAmount       Decimal        @default(0.00) @map("nursing_original_amount") @db.Decimal(10, 2)
+  nursingDiscountType         DiscountType?  @default(PERCENTAGE) @map("nursing_discount_type")
+  nursingDiscountValue        Decimal        @default(0.00) @map("nursing_discount_value") @db.Decimal(10, 2)
+  nursingDiscountAmount       Decimal        @default(0.00) @map("nursing_discount_amount") @db.Decimal(10, 2)
+  nursingFinalAmount          Decimal        @default(0.00) @map("nursing_final_amount") @db.Decimal(10, 2)
+  icuOriginalAmount           Decimal        @default(0.00) @map("icu_original_amount") @db.Decimal(10, 2)
+  icuDiscountType             DiscountType?  @default(PERCENTAGE) @map("icu_discount_type")
+  icuDiscountValue            Decimal        @default(0.00) @map("icu_discount_value") @db.Decimal(10, 2)
+  icuDiscountAmount           Decimal        @default(0.00) @map("icu_discount_amount") @db.Decimal(10, 2)
+  icuFinalAmount              Decimal        @default(0.00) @map("icu_final_amount") @db.Decimal(10, 2)
+  serviceDailyRate            Decimal        @default(0.00) @map("service_daily_rate") @db.Decimal(10, 2)
+  serviceOriginalAmount       Decimal        @default(0.00) @map("service_original_amount") @db.Decimal(10, 2)
+  serviceDiscountType         DiscountType?  @default(PERCENTAGE) @map("service_discount_type")
+  serviceDiscountValue        Decimal        @default(0.00) @map("service_discount_value") @db.Decimal(10, 2)
+  serviceDiscountAmount       Decimal        @default(0.00) @map("service_discount_amount") @db.Decimal(10, 2)
+  serviceFinalAmount          Decimal        @default(0.00) @map("service_final_amount") @db.Decimal(10, 2)
+  subtotal                    Decimal        @default(0.00) @db.Decimal(10, 2)
+  discount                    Decimal        @default(0.00) @db.Decimal(10, 2)
+  discountType                DiscountType   @default(FIXED_AMOUNT) @map("discount_type")
+  discountValue               Decimal        @default(0.00) @map("discount_value") @db.Decimal(10, 2)
+  taxableAmount               Decimal        @default(0.00) @map("taxable_amount") @db.Decimal(10, 2)
+  gstRate                     Decimal        @default(0.00) @map("gst_rate") @db.Decimal(5, 2)
+  gstAmount                   Decimal        @default(0.00) @map("gst_amount") @db.Decimal(10, 2)
+  grandTotal                  Decimal        @default(0.00) @map("grand_total") @db.Decimal(10, 2)
+  approvedBy                  String?        @map("approved_by") @db.Uuid
+  approvedAt                  DateTime?      @map("approved_at") @db.Timestamptz
+  isActive                    Boolean        @default(true) @map("is_active")
+  createdAt                   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                   DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt                   DateTime?      @map("deleted_at") @db.Timestamptz
+  deletedBy                   String?        @map("deleted_by") @db.Uuid
+  generatedFileName           String?        @map("generated_file_name") @db.VarChar(255)
+  generatedAt                 DateTime?      @map("generated_at") @db.Timestamptz
+  generatedBy                 String?        @map("generated_by") @db.Uuid
+
+  hospital          HospitalProfile    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  event             CalendarEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  room              RoomMaster?        @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  approver          User?              @relation("ApprovedByEstimate", fields: [approvedBy], references: [id], onDelete: SetNull)
+  deleter           User?              @relation("DeletedByEstimate", fields: [deletedBy], references: [id], onDelete: SetNull)
+  estimateSurgeries EstimateSurgery[]
+  estimateItems     EstimateItem[]
+  estimateVersions  EstimateVersion[]
+
+  @@unique([hospitalId, estimateNumber])
+  @@map("estimates")
+}
+
+model EstimateSurgery {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  estimateId      String    @map("estimate_id") @db.Uuid
+  surgeryId       String    @map("surgery_id") @db.Uuid
+  durationMinutes Int       @default(0) @map("duration_minutes")
+  surgeryCost     Decimal   @default(0.00) @map("surgery_cost") @db.Decimal(10, 2)
+  discountPct     Decimal   @default(0.00) @map("discount_pct") @db.Decimal(5, 2)
+  discountType    DiscountType @default(PERCENTAGE) @map("discount_type")
+  discountValue   Decimal   @default(0.00) @map("discount_value") @db.Decimal(10, 2)
+  discountAmount  Decimal   @default(0.00) @map("discount_amount") @db.Decimal(10, 2)
+  finalAmount     Decimal   @default(0.00) @map("final_amount") @db.Decimal(10, 2)
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy       String?   @map("deleted_by") @db.Uuid
+
+  estimate Estimate      @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  surgery  SurgeryMaster @relation(fields: [surgeryId], references: [id], onDelete: Restrict)
+  deleter  User?         @relation("DeletedByEstSurgery", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  @@unique([estimateId, surgeryId])
+  @@map("estimate_surgeries")
+}
+
+model EstimateItem {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  estimateId     String    @map("estimate_id") @db.Uuid
+  chargeCategory String    @map("charge_category") @db.VarChar(100)
+  description    String    @db.VarChar(255)
+  quantity       Int       @default(1)
+  rate           Decimal   @default(0.00) @db.Decimal(10, 2)
+  originalAmount Decimal   @default(0.00) @map("original_amount") @db.Decimal(10, 2)
+  discountType   DiscountType @default(FIXED_AMOUNT) @map("discount_type")
+  discountValue  Decimal   @default(0.00) @map("discount_value") @db.Decimal(10, 2)
+  discountAmount Decimal   @default(0.00) @map("discount_amount") @db.Decimal(10, 2)
+  amount         Decimal   @default(0.00) @db.Decimal(10, 2)
+  itemGroup      ItemGroup    @default(CUSTOM) @map("item_group")
+  isPrintable    Boolean   @default(true) @map("is_printable")
+  isTaxable      Boolean   @default(true) @map("is_taxable")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy      String?   @map("deleted_by") @db.Uuid
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  deleter  User?    @relation("DeletedByEstItem", fields: [deletedBy], references: [id], onDelete: SetNull)
+
+  @@map("estimate_items")
+}
+
+model EstimateVersion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  estimateId    String   @map("estimate_id") @db.Uuid
+  versionNumber Int      @map("version_number")
+  createdBy     String   @map("created_by") @db.Uuid
+  previousTotal Decimal  @map("previous_total") @db.Decimal(10, 2)
+  newTotal      Decimal  @map("new_total") @db.Decimal(10, 2)
+  changeSummary String   @map("change_summary") @db.Text
+  changeReason  String   @map("change_reason") @db.Text
+  snapshot      Json
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  creator  User     @relation("CreatedByVersion", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@unique([estimateId, versionNumber])
+  @@map("estimate_versions")
+}
+
+model EstimateTemplate {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId   String     @map("hospital_id") @db.Uuid
+  templateName String     @map("template_name") @db.VarChar(150)
+  createdBy    String     @map("created_by") @db.Uuid
+  visibility   Visibility @default(GLOBAL)
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz
+  deletedBy    String?    @map("deleted_by") @db.Uuid
+
+  hospital      HospitalProfile        @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  creator       User                   @relation("CreatedByTemplate", fields: [createdBy], references: [id], onDelete: Restrict)
+  deleter       User?                  @relation("DeletedByTemplate", fields: [deletedBy], references: [id], onDelete: SetNull)
+  templateItems EstimateTemplateItem[]
+
+  @@unique([hospitalId, templateName])
+  @@map("estimate_templates")
+}
+
+model EstimateTemplateItem {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  templateId      String           @map("template_id") @db.Uuid
+  itemType        TemplateItemType @map("item_type")
+  description     String           @db.VarChar(255)
+  defaultQuantity Int              @default(1) @map("default_quantity")
+  defaultRate     Decimal          @default(0.00) @map("default_rate") @db.Decimal(10, 2)
+  discountType    DiscountType?    @map("discount_type")
+  discountValue   Decimal          @default(0.00) @map("discount_value") @db.Decimal(10, 2)
+  itemGroup       ItemGroup?       @map("item_group")
+  isPrintable     Boolean          @default(true) @map("is_printable")
+  isTaxable       Boolean          @default(true) @map("is_taxable")
+
+  template EstimateTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("estimate_template_items")
+}
+
+model AuditLog {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hospitalId        String   @map("hospital_id") @db.Uuid
+  userId            String?  @map("user_id") @db.Uuid
+  userNameSnapshot  String   @map("user_name_snapshot") @db.VarChar(255)
+  userRoleSnapshot  String   @map("user_role_snapshot") @db.VarChar(100)
+  action            String   @db.VarChar(100)
+  targetTable       String   @map("target_table") @db.VarChar(100)
+  targetId          String   @map("target_id") @db.Uuid
+  payload           Json
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  hospital HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  user     User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([hospitalId, createdAt(sort: Desc)])
+  @@index([targetTable, targetId])
+  @@map("audit_logs")
+}

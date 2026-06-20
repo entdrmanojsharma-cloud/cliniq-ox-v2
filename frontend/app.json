@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "6f8db1e7-e3b0-4bf9-82b5-090054b1d800"
+      }
+    },
+    "android": {
+      "package": "com.drmanoj408.frontend"
+    }
+  }
+}

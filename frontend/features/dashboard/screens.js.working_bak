@@ -1,0 +1,87 @@
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { useAuthStore } from '../auth/store';
+import { api } from '../../shared/utils/api';
+
+export function DashboardScreen() {
+  const { role } = useAuthStore();
+  const [connectionStatus, setConnectionStatus] = useState('Checking...');
+  const [apiHealth, setApiHealth] = useState('Checking...');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function checkApi() {
+      try {
+        const data = await api.get('/patients');
+        setConnectionStatus('Connected to http://localhost:3000/api/v1');
+        setApiHealth(`Success (found ${data.patients?.length || 0} patient(s))`);
+      } catch (err) {
+        setConnectionStatus('Failed to connect');
+        setApiHealth(`Failed: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+    checkApi();
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Cliniq-OX Dashboard</Text>
+      
+      <View style={styles.card}>
+        <Text style={styles.label}>Logged-in Role:</Text>
+        <Text style={styles.value}>{role || 'None'}</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Backend Connection Status:</Text>
+        <Text style={styles.value}>{connectionStatus}</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>API Health Status:</Text>
+        {loading ? (
+          <ActivityIndicator size="small" color="#0000ff" />
+        ) : (
+          <Text style={styles.value}>{apiHealth}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center'
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0f172a',
+    marginBottom: 20,
+    textAlign: 'center'
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
+  },
+  label: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
+    marginBottom: 5
+  },
+  value: {
+    fontSize: 16,
+    color: '#0f172a',
+    fontWeight: 'bold'
+  }
+});

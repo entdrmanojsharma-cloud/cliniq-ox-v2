@@ -1,0 +1,9 @@
+{
+  "name": "backend",
+  "version": "0.1.0-alpha",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node --env-file=../.env index.js"
+  }
+}
