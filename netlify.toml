@@ -8,6 +8,7 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  EXPO_PUBLIC_API_URL = "https://cliniq-ox-api.onrender.com"
 
 # Redirect all routes to index.html (needed for React Navigation routing)
 [[redirects]]
