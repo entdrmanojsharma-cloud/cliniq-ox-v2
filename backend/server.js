@@ -565,7 +565,7 @@ app.get('/', (req, res) => {
           <h1>Cliniq-OX Server</h1>
           <div class="badge">● API Services Active</div>
           <p>The backend REST API is listening successfully. For client interactions, dashboard metrics, patient records, and estimate planning, launch the frontend application.</p>
-          <a href="http://localhost:9010" class="btn">Launch Web Frontend</a>
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:9010'}" class="btn">Launch Web Frontend</a>
           <div class="footer">
             Cliniq-OX Management System • Version 0.1.3-alpha
           </div>

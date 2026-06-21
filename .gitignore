@@ -7,3 +7,6 @@ node_modules
 *.webp
 frontend/.expo/
 frontend/bundle.js
+frontend/dist/
+scratch/
+*.py
