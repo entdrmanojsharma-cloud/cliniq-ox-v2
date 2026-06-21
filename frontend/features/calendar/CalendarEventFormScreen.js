@@ -79,7 +79,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
 
   const { patients, fetchPatients } = usePatientsStore();
   const { doctors, fetchDoctors } = useDoctorsStore();
-  const { otRooms, fetchOtRooms } = useMasterDataStore();
+  const { otRooms, fetchOtRooms, diagnosisMasters, fetchDiagnosisMasters } = useMasterDataStore();
   const { surgeries, fetchSurgeries } = useSurgeriesStore();
 
   const [categorySelected, setCategorySelected] = useState(!!id);
@@ -99,8 +99,13 @@ export function CalendarEventFormScreen({ route, navigation }) {
   
   const [patientId, setPatientId] = useState(existing.patientId || routePatientId || '');
   const [doctorId, setDoctorId] = useState(existing.doctorId || '');
+  const [doctorManualName, setDoctorManualName] = useState(''); // free-text fallback
   const [assistantSurgeonId, setAssistantSurgeonId] = useState(existing.assistantSurgeonId || '');
+  const [assistantManualName, setAssistantManualName] = useState(''); // free-text fallback
   const [location, setLocation] = useState(existing.location || '');
+
+  const [selectedDiagnoses, setSelectedDiagnoses] = useState(existing.diagnoses || []);
+  const [customDiagText, setCustomDiagText] = useState('');
 
   const [patientSearch, setPatientSearch] = useState('');
   const [doctorSearch, setDoctorSearch] = useState('');
@@ -112,6 +117,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
     fetchDoctors();
     fetchOtRooms();
     fetchSurgeries();
+    fetchDiagnosisMasters();
   }, []);
 
   const handleSelectCategory = (cat) => {
@@ -222,10 +228,13 @@ export function CalendarEventFormScreen({ route, navigation }) {
         endTime: new Date(endTimeCombined).toISOString(),
         patientId: patientId || null,
         doctorId: doctorId || null,
+        doctorManualName: doctorManualName || null,   // free-text fallback
         assistantSurgeonId: assistantSurgeonId || null,
+        assistantManualName: assistantManualName || null,  // free-text fallback
         location: location || null,
         recurrenceRule: computedRecurrenceRule,
-        forceCreate: forceCreate || undefined  // skip conflict check when true
+        forceCreate: forceCreate || undefined,  // skip conflict check when true
+        diagnoses: selectedDiagnoses
       };
       
       console.log('doSave called with forceCreate:', forceCreate);
@@ -236,8 +245,31 @@ export function CalendarEventFormScreen({ route, navigation }) {
         navigation.goBack();
       } else {
         const res = await createEvent(payload);
-        if (routeRedirectToEstimate && res && res.id) {
-          navigation.navigate('EstimateForm', { id: null, eventId: res.id });
+        if (eventType === 'SURGERY') {
+          Alert.alert(
+            'Event Scheduled Successfully',
+            'Would you like to create a surgery estimate now?',
+            [
+              {
+                text: 'Create Surgery Estimate',
+                onPress: () => {
+                  if (res && res.id) {
+                    navigation.replace('EstimateForm', { id: null, eventId: res.id });
+                  } else {
+                    navigation.goBack();
+                  }
+                }
+              },
+              {
+                text: 'Go to Dashboard',
+                onPress: () => {
+                  navigation.goBack();
+                },
+                style: 'cancel'
+              }
+            ],
+            { cancelable: false }
+          );
         } else {
           navigation.goBack();
         }
@@ -282,7 +314,12 @@ export function CalendarEventFormScreen({ route, navigation }) {
   }
 
   const selectedPatient = patients.find(p => p.id === patientId);
-  const selectedDoctor = doctors.find(d => d.id === doctorId);
+  const selectedDoctor = doctorManualName
+    ? { _manualEntry: true, displayName: doctorManualName }
+    : doctors.find(d => d.id === doctorId) || null;
+  const selectedAssistant = assistantManualName
+    ? { _manualEntry: true, displayName: assistantManualName }
+    : doctors.find(d => d.id === assistantSurgeonId) || null;
 
   // Only show dropdown list when user is actively typing (non-empty search)
   const filteredPatients = patientSearch.trim()
@@ -379,26 +416,98 @@ export function CalendarEventFormScreen({ route, navigation }) {
             <SearchableDropdown
               items={doctors}
               value={selectedDoctor}
-              onSelect={(d) => { setDoctorId(d ? d.id : ''); }}
+              onSelect={(d) => {
+                if (!d) { setDoctorId(''); setDoctorManualName(''); }
+                else if (d._manualEntry) { setDoctorId(''); setDoctorManualName(d.displayName); }
+                else { setDoctorId(d.id); setDoctorManualName(''); }
+              }}
               placeholder="Tap to browse surgeons ▼"
-              keyExtractor={d => d.id}
-              renderItem={d => `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-              renderSelected={d => `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-              filterFn={(d, q) => `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())}
+              keyExtractor={d => d._manualEntry ? '__manual__' : d.id}
+              renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+              renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+              filterFn={(d, q) => d._manualEntry ? d.displayName.toLowerCase().includes(q.toLowerCase()) : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())}
+              manualEntryLabel="Not in list? Type doctor name manually"
             />
 
             {/* ─── Assistant Surgeon Combobox Dropdown ─── */}
             <Text style={styles.label}>Assistant Surgeon (Optional)</Text>
             <SearchableDropdown
               items={doctors}
-              value={doctors.find(d => d.id === assistantSurgeonId)}
-              onSelect={(d) => { setAssistantSurgeonId(d ? d.id : ''); }}
+              value={selectedAssistant}
+              onSelect={(d) => {
+                if (!d) { setAssistantSurgeonId(''); setAssistantManualName(''); }
+                else if (d._manualEntry) { setAssistantSurgeonId(''); setAssistantManualName(d.displayName); }
+                else { setAssistantSurgeonId(d.id); setAssistantManualName(''); }
+              }}
               placeholder="Tap to browse assistant surgeons ▼"
-              keyExtractor={d => d.id}
-              renderItem={d => `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-              renderSelected={d => `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-              filterFn={(d, q) => `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())}
+              keyExtractor={d => d._manualEntry ? '__manual_asst__' : d.id}
+              renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+              renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+              filterFn={(d, q) => d._manualEntry ? d.displayName.toLowerCase().includes(q.toLowerCase()) : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())}
+              manualEntryLabel="Not in list? Type assistant name manually"
             />
+
+            {/* ─── Diagnoses (Optional) ─── */}
+            <Text style={styles.label}>Diagnoses (Optional)</Text>
+            
+            {/* Selected Diagnosis Chips */}
+            {selectedDiagnoses.length > 0 && (
+              <View style={styles.chipContainer}>
+                {selectedDiagnoses.map((diag, index) => (
+                  <View key={index} style={styles.diagnosisChip}>
+                    <Text style={styles.diagnosisChipText}>{diag}</Text>
+                    <TouchableOpacity 
+                      onPress={() => setSelectedDiagnoses(selectedDiagnoses.filter(d => d !== diag))} 
+                      style={styles.diagnosisChipDelete}
+                    >
+                      <Text style={styles.diagnosisChipDeleteText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <SearchableDropdown
+              items={diagnosisMasters}
+              value={null}
+              onSelect={(d) => {
+                if (d && d.diagnosisName) {
+                  if (!selectedDiagnoses.includes(d.diagnosisName)) {
+                    setSelectedDiagnoses([...selectedDiagnoses, d.diagnosisName]);
+                  }
+                }
+              }}
+              placeholder="Search & add diagnosis ▼"
+              keyExtractor={d => d.id || d.diagnosisName}
+              renderItem={d => `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
+              renderSelected={d => `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
+              filterFn={(d, q) => `${d.diagnosisName} ${d.icdCode || ''}`.toLowerCase().includes(q.toLowerCase())}
+            />
+
+            {/* Add Custom Diagnosis input */}
+            <View style={styles.customDiagRow}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginVertical: 0 }]}
+                placeholder="Or type custom diagnosis..."
+                placeholderTextColor={theme.colors.textMuted}
+                value={customDiagText}
+                onChangeText={setCustomDiagText}
+              />
+              <TouchableOpacity 
+                style={styles.customDiagAddBtn} 
+                onPress={() => {
+                  const txt = customDiagText.trim();
+                  if (txt) {
+                    if (!selectedDiagnoses.includes(txt)) {
+                      setSelectedDiagnoses([...selectedDiagnoses, txt]);
+                    }
+                    setCustomDiagText('');
+                  }
+                }}
+              >
+                <Text style={styles.customDiagAddBtnText}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
           </>
         ) : (
           <>
@@ -412,12 +521,17 @@ export function CalendarEventFormScreen({ route, navigation }) {
                 <SearchableDropdown
                   items={doctors}
                   value={selectedDoctor}
-                  onSelect={(d) => { setDoctorId(d ? d.id : ''); }}
+                  onSelect={(d) => {
+                    if (!d) { setDoctorId(''); setDoctorManualName(''); }
+                    else if (d._manualEntry) { setDoctorId(''); setDoctorManualName(d.displayName); }
+                    else { setDoctorId(d.id); setDoctorManualName(''); }
+                  }}
                   placeholder="Tap to browse doctors ▼"
-                  keyExtractor={d => d.id}
-                  renderItem={d => `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-                  renderSelected={d => `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-                  filterFn={(d, q) => `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())}
+                  keyExtractor={d => d._manualEntry ? '__manual__' : d.id}
+                  renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+                  renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+                  filterFn={(d, q) => d._manualEntry ? d.displayName.toLowerCase().includes(q.toLowerCase()) : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())}
+                  manualEntryLabel="Not in list? Type doctor name manually"
                 />
               </>
             )}
@@ -534,5 +648,13 @@ const styles = StyleSheet.create({
   toggleText: { color: theme.colors.text, fontSize: 11, fontWeight: '600' },
   toggleTextActive: { color: '#ffffff' },
   saveButton: { backgroundColor: theme.colors.success, padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 24 },
-  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '700' }
+  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 6 },
+  diagnosisChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.primary + '22', borderWidth: 1, borderColor: theme.colors.primary, borderRadius: 16, paddingVertical: 4, paddingLeft: 12, paddingRight: 6 },
+  diagnosisChipText: { color: theme.colors.primary, fontSize: 12, fontWeight: '600' },
+  diagnosisChipDelete: { marginLeft: 6, padding: 2 },
+  diagnosisChipDeleteText: { color: theme.colors.primary, fontWeight: '700', fontSize: 13 },
+  customDiagRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 6, marginBottom: 12 },
+  customDiagAddBtn: { backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', height: 46 },
+  customDiagAddBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13 }
 });

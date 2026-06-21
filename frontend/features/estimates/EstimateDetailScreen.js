@@ -120,6 +120,12 @@ export function EstimateDetailScreen({ route, navigation }) {
           </Text>
         </Text>
 
+        {est.diagnoses && est.diagnoses.length > 0 ? (
+          <Text style={styles.detailLabel}>
+            Diagnoses: <Text style={styles.detailValue}>{est.diagnoses.join(', ')}</Text>
+          </Text>
+        ) : null}
+
         <Text style={styles.detailLabel}>Expected Duration: <Text style={styles.detailValue}>{est.expectedDurationMinutes} min</Text></Text>
         <Text style={styles.detailLabel}>Expected Stay: <Text style={styles.detailValue}>{est.expectedStayDays} days</Text></Text>
         <Text style={styles.detailLabel}>Subtotal: <Text style={styles.detailValue}>INR {Number(est.subtotal).toLocaleString()}</Text></Text>

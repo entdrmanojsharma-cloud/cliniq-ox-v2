@@ -8,11 +8,17 @@ class SurgeriesRepository {
     this.prisma = prisma;
   }
 
-  async findAndCount({ hospitalId, skip, take, sortBy, sortOrder, category }) {
+  async findAndCount({ hospitalId, skip, take, sortBy, sortOrder, category, search }) {
     const where = {
       hospitalId,
       isActive: true,
-      ...(category && { category: { contains: category, mode: 'insensitive' } })
+      ...(category && { category: { contains: category, mode: 'insensitive' } }),
+      ...(search && {
+        OR: [
+          { surgeryName: { contains: search, mode: 'insensitive' } },
+          { surgeryCode: { contains: search, mode: 'insensitive' } }
+        ]
+      })
     };
 
     const orderBy = sortBy ? { [sortBy]: sortOrder || 'asc' } : { surgeryName: 'asc' };

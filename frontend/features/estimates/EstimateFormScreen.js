@@ -330,8 +330,9 @@ export function EstimateFormScreen({ route, navigation }) {
   const [eventPhoneSearch, setEventPhoneSearch] = useState('');
   const [showEventDropdown, setShowEventDropdown] = useState(false);
 
-  // ── Section B: diagnosis ──
-  const [diagnosis, setDiagnosis] = useState(existing.diagnosis || '');
+  // ── Section B: diagnoses ──
+  const [selectedDiagnoses, setSelectedDiagnoses] = useState(existing.diagnoses || (existing.diagnosis ? [existing.diagnosis] : []));
+  const [customDiagText, setCustomDiagText] = useState('');
 
   // ── Section C: surgeries ──
   const [surgeries, setSurgeries] = useState(
@@ -667,6 +668,10 @@ export function EstimateFormScreen({ route, navigation }) {
         const docName = `Dr. ${event.doctor.firstName} ${event.doctor.lastName}`;
         setPrimaryDoctor(docName);
         setPrimaryDoctorObj(event.doctor);
+      }
+
+      if (event.diagnoses && event.diagnoses.length > 0) {
+        setSelectedDiagnoses(event.diagnoses);
       }
 
       if (event.assistantSurgeon) {
@@ -1175,6 +1180,7 @@ export function EstimateFormScreen({ route, navigation }) {
         packagePrice: isPackage ? (Number(packagePrice) || 0) : null,
         packageIncludes: isPackage ? packageIncludes : null,
         packageTemplateId: packageTemplateId || null,
+        diagnoses: selectedDiagnoses
       };
 
       const saved = id ? await updateEstimate(id, payload) : await createEstimate(payload);
@@ -1202,33 +1208,12 @@ export function EstimateFormScreen({ route, navigation }) {
         }
       }
 
-      const isDoc = role === 'DOCTOR';
-
       Alert.alert(
         'Success',
         id ? 'Estimate updated successfully.' : 'Estimate created successfully.',
         [
           {
-            text: isDoc ? '✓ Approve Estimate' : '📤 Submit for Approval',
-            onPress: async () => {
-              try {
-                if (estimateId) {
-                  await useEstimatesStore.getState().updateStatus(estimateId, isDoc ? 'APPROVED' : 'PENDING_APPROVAL', isDoc ? 'Approved post-save' : 'Submitted post-save');
-                  Alert.alert('Success', isDoc ? 'Estimate approved.' : 'Estimate submitted for doctor approval.');
-                }
-                navigation.goBack();
-              } catch (err) {
-                Alert.alert('Status Update Failed', err.message);
-                if (estimateId) {
-                  navigation.replace('EstimateDetail', { id: estimateId });
-                } else {
-                  navigation.goBack();
-                }
-              }
-            }
-          },
-          {
-            text: '🖨️ View & Print',
+            text: 'View Details',
             onPress: () => {
               if (estimateId) {
                 navigation.replace('EstimateDetail', { id: estimateId });
@@ -1236,11 +1221,6 @@ export function EstimateFormScreen({ route, navigation }) {
                 navigation.goBack();
               }
             }
-          },
-          {
-            text: 'Go to List',
-            onPress: () => navigation.goBack(),
-            style: 'cancel'
           }
         ],
         { cancelable: false }
@@ -1524,18 +1504,65 @@ export function EstimateFormScreen({ route, navigation }) {
         {/* ── Diagnosis (Optional) ── */}
         <View style={styles.section}>
           <FormLabel text="Diagnosis (Optional)" />
+          
+          {/* Selected Diagnosis Chips */}
+          {selectedDiagnoses.length > 0 && (
+            <View style={styles.chipContainer}>
+              {selectedDiagnoses.map((diag, index) => (
+                <View key={index} style={styles.diagnosisChip}>
+                  <Text style={styles.diagnosisChipText}>{diag}</Text>
+                  <TouchableOpacity 
+                    onPress={() => setSelectedDiagnoses(selectedDiagnoses.filter(d => d !== diag))} 
+                    style={styles.diagnosisChipDelete}
+                  >
+                    <Text style={styles.diagnosisChipDeleteText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
           <SearchableDropdown
             items={diagnosisMasters}
-            value={diagnosisMasters.find(d => d.diagnosisName === diagnosis) || (diagnosis ? { _custom: true, diagnosisName: diagnosis } : null)}
+            value={null}
             onSelect={(d) => {
-              setDiagnosis(d ? d.diagnosisName : '');
+              if (d && d.diagnosisName) {
+                if (!selectedDiagnoses.includes(d.diagnosisName)) {
+                  setSelectedDiagnoses([...selectedDiagnoses, d.diagnosisName]);
+                }
+              }
             }}
-            placeholder="Search & select diagnosis ▼"
+            placeholder="Search & add diagnosis ▼"
             keyExtractor={d => d.id || d.diagnosisName}
-            renderItem={d => d._custom ? d.diagnosisName : `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
-            renderSelected={d => d._custom ? d.diagnosisName : `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
-            filterFn={(d, q) => d._custom ? true : `${d.diagnosisName} ${d.icdCode || ''}`.toLowerCase().includes(q.toLowerCase())}
+            renderItem={d => `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
+            renderSelected={d => `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
+            filterFn={(d, q) => `${d.diagnosisName} ${d.icdCode || ''}`.toLowerCase().includes(q.toLowerCase())}
           />
+
+          {/* Add Custom Diagnosis input */}
+          <View style={styles.customDiagRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginVertical: 0 }]}
+              placeholder="Or type custom diagnosis..."
+              placeholderTextColor={theme.colors.textMuted}
+              value={customDiagText}
+              onChangeText={setCustomDiagText}
+            />
+            <TouchableOpacity 
+              style={styles.customDiagAddBtn} 
+              onPress={() => {
+                const txt = customDiagText.trim();
+                if (txt) {
+                  if (!selectedDiagnoses.includes(txt)) {
+                    setSelectedDiagnoses([...selectedDiagnoses, txt]);
+                  }
+                  setCustomDiagText('');
+                }
+              }}
+            >
+              <Text style={styles.customDiagAddBtnText}>+ Add</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ── Template & Package Section ── */}
@@ -1568,13 +1595,14 @@ export function EstimateFormScreen({ route, navigation }) {
           <FormLabel text="Name Doctor/Surgeon *" />
           <SearchableDropdown
             items={allDoctors}
-            value={primaryDoctorObj || (primaryDoctor ? { _nameOnly: true, displayName: primaryDoctor } : null)}
+            value={primaryDoctorObj || (primaryDoctor ? { _manualEntry: true, displayName: primaryDoctor } : null)}
             onSelect={(d) => {
               if (!d) {
                 setPrimaryDoctorObj(null);
                 setPrimaryDoctor('');
-              } else if (d._nameOnly) {
-                // keep as-is
+              } else if (d._manualEntry) {
+                setPrimaryDoctorObj(null);
+                setPrimaryDoctor(d.displayName);
               } else {
                 const name = `Dr. ${d.firstName} ${d.lastName}`;
                 setPrimaryDoctorObj(d);
@@ -1583,24 +1611,26 @@ export function EstimateFormScreen({ route, navigation }) {
             }}
             placeholder="Search & select doctor from master ▼"
             keyExtractor={d => d.id || d.displayName}
-            renderItem={d => d._nameOnly ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-            renderSelected={d => d._nameOnly ? `🩺 ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty})`}
-            filterFn={(d, q) => d._nameOnly
+            renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+            renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty})`}
+            filterFn={(d, q) => d._manualEntry
               ? d.displayName.toLowerCase().includes(q.toLowerCase())
               : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())
             }
+            manualEntryLabel="Not in list? Type doctor name manually"
           />
 
           <FormLabel text="Name Assistant Surgeon (Optional)" />
           <SearchableDropdown
             items={allDoctors}
-            value={assistantSurgeonObj || (assistantSurgeonName ? { _nameOnly: true, displayName: assistantSurgeonName } : null)}
+            value={assistantSurgeonObj || (assistantSurgeonName ? { _manualEntry: true, displayName: assistantSurgeonName } : null)}
             onSelect={(d) => {
               if (!d) {
                 setAssistantSurgeonObj(null);
                 setAssistantSurgeonName('');
-              } else if (d._nameOnly) {
-                // keep as-is
+              } else if (d._manualEntry) {
+                setAssistantSurgeonObj(null);
+                setAssistantSurgeonName(d.displayName);
               } else {
                 const name = `Dr. ${d.firstName} ${d.lastName}`;
                 setAssistantSurgeonObj(d);
@@ -1609,12 +1639,13 @@ export function EstimateFormScreen({ route, navigation }) {
             }}
             placeholder="Search & select assistant surgeon ▼"
             keyExtractor={d => d.id || d.displayName}
-            renderItem={d => d._nameOnly ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-            renderSelected={d => d._nameOnly ? `🩺 ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty})`}
-            filterFn={(d, q) => d._nameOnly
+            renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+            renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty})`}
+            filterFn={(d, q) => d._manualEntry
               ? d.displayName.toLowerCase().includes(q.toLowerCase())
               : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())
             }
+            manualEntryLabel="Not in list? Type assistant name manually"
           />
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14 }}>
@@ -2759,7 +2790,15 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 4,
     fontStyle: 'italic',
-  }
+  },
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 6 },
+  diagnosisChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.primary + '22', borderWidth: 1, borderColor: theme.colors.primary, borderRadius: 16, paddingVertical: 4, paddingLeft: 12, paddingRight: 6 },
+  diagnosisChipText: { color: theme.colors.primary, fontSize: 12, fontWeight: '600' },
+  diagnosisChipDelete: { marginLeft: 6, padding: 2 },
+  diagnosisChipDeleteText: { color: theme.colors.primary, fontWeight: '700', fontSize: 13 },
+  customDiagRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 6, marginBottom: 12 },
+  customDiagAddBtn: { backgroundColor: theme.colors.primary, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', height: 46 },
+  customDiagAddBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 13 }
 });
 
 const tableStyles = StyleSheet.create({

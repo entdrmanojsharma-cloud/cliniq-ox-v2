@@ -498,9 +498,9 @@ export function PatientDetailScreen({ route, navigation }) {
             <Text style={theme.typography.body}>No surgery or OPD bookings found for this patient.</Text>
             <TouchableOpacity 
               style={[styles.createEventBtn, { marginTop: 10 }]} 
-              onPress={() => navigation.navigate('CalendarEventForm', { id: null, patientId: id, redirectToEstimate: true })}
+              onPress={() => navigation.navigate('CalendarEventForm', { id: null, patientId: id, redirectToEstimate: false })}
             >
-              <Text style={styles.createEventBtnText}>📅 Schedule Event & Create Estimate</Text>
+              <Text style={styles.createEventBtnText}>📅 Schedule Surgery / Event</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -550,7 +550,7 @@ export function PatientDetailScreen({ route, navigation }) {
       {patientEvents.length > 0 && (
         <TouchableOpacity 
           style={styles.createEventBtn} 
-          onPress={() => navigation.navigate('CalendarEventForm', { id: null, patientId: id, redirectToEstimate: true })}
+          onPress={() => navigation.navigate('CalendarEventForm', { id: null, patientId: id, redirectToEstimate: false })}
         >
           <Text style={styles.createEventBtnText}>📅 Schedule New Event</Text>
         </TouchableOpacity>

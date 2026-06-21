@@ -23,7 +23,8 @@ const createEventSchema = z.object({
   surgeryId: z.string().uuid().optional().nullable(),
   surgeryCost: z.number().optional().nullable(),
   durationMinutes: z.number().int().optional().nullable(),
-  forceCreate: z.boolean().optional().nullable()
+  forceCreate: z.boolean().optional().nullable(),
+  diagnoses: z.array(z.string()).optional()
 }).refine(data => new Date(data.startTime) < new Date(data.endTime), {
   message: 'Start time must be before end time.',
   path: ['startTime']
@@ -44,7 +45,8 @@ const updateEventSchema = z.object({
   surgeryId: z.string().uuid().optional().nullable(),
   surgeryCost: z.number().optional().nullable(),
   durationMinutes: z.number().int().optional().nullable(),
-  forceCreate: z.boolean().optional().nullable()
+  forceCreate: z.boolean().optional().nullable(),
+  diagnoses: z.array(z.string()).optional()
 }).refine(data => {
   if (data.startTime && data.endTime) {
     return new Date(data.startTime) < new Date(data.endTime);

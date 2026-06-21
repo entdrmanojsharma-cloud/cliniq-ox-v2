@@ -78,7 +78,8 @@ const createEstimateSchema = z.object({
   packagePrice: z.number().nonnegative().nullable().optional(),
   packageIncludes: z.string().nullable().optional(),
   packageTemplateId: z.string().uuid('Invalid package template ID format.').nullable().optional(),
-  approvalRemark: z.string().nullable().optional()
+  approvalRemark: z.string().nullable().optional(),
+  diagnoses: z.array(z.string()).optional()
 });
 
 const updateEstimateSchema = z.object({
@@ -118,7 +119,8 @@ const updateEstimateSchema = z.object({
   packagePrice: z.number().nonnegative().nullable().optional(),
   packageIncludes: z.string().nullable().optional(),
   packageTemplateId: z.string().uuid('Invalid package template ID format.').nullable().optional(),
-  approvalRemark: z.string().nullable().optional()
+  approvalRemark: z.string().nullable().optional(),
+  diagnoses: z.array(z.string()).optional()
 });
 
 class EstimatesValidator {

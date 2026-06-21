@@ -96,7 +96,8 @@ class CalendarService {
       surgeryCost: data.surgeryCost !== undefined && data.surgeryCost !== null ? Number(data.surgeryCost) : null,
       durationMinutes,
       priority: data.forceCreate ? 'LOW' : 'NORMAL',
-      createdBy: userContext.userId
+      createdBy: userContext.userId,
+      diagnoses: data.diagnoses || []
     });
 
     // --- Trigger Notifications for Conflict Override ---
@@ -205,7 +206,8 @@ class CalendarService {
       description: data.description !== undefined ? data.description : undefined,
       surgeryId: data.surgeryId !== undefined ? data.surgeryId : undefined,
       surgeryCost: data.surgeryCost !== undefined ? (data.surgeryCost !== null ? Number(data.surgeryCost) : null) : undefined,
-      durationMinutes
+      durationMinutes,
+      diagnoses: data.diagnoses !== undefined ? data.diagnoses : undefined
     };
 
     // Remove undefined fields
@@ -274,6 +276,22 @@ class CalendarService {
       err.status = 400;
       err.code = 'ERR_INVALID_STATUS_TRANSITION';
       throw err;
+    }
+
+    if (status === 'COMPLETED' && existing.eventType === 'SURGERY') {
+      const estimate = existing.estimate;
+      if (!estimate) {
+        const err = new Error('Cannot complete surgery event: No surgery estimate has been created yet.');
+        err.status = 400;
+        err.code = 'ERR_NO_ESTIMATE';
+        throw err;
+      }
+      if (estimate.status !== 'APPROVED' && estimate.status !== 'LOCKED') {
+        const err = new Error(`Cannot complete surgery event: The surgery estimate is in ${estimate.status} status. It must be APPROVED or LOCKED before completing the event.`);
+        err.status = 400;
+        err.code = 'ERR_ESTIMATE_NOT_FINISHED';
+        throw err;
+      }
     }
 
     const updateData = { eventStatus: status };

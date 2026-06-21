@@ -309,6 +309,7 @@ model CalendarEvent {
   updatedAt       DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt       DateTime?   @map("deleted_at") @db.Timestamptz
   deletedBy       String?     @map("deleted_by") @db.Uuid
+  diagnoses       String[]    @default([])
 
   hospital         HospitalProfile @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
   doctor           Doctor?         @relation(fields: [doctorId], references: [id], onDelete: SetNull)
@@ -503,6 +504,7 @@ model Estimate {
   packageIncludes             String?        @map("package_includes") @db.Text
   packageTemplateId           String?        @map("package_template_id") @db.Uuid
   approvalRemark              String?        @map("approval_remark") @db.Text
+  diagnoses                   String[]       @default([])
 
   hospital          HospitalProfile    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
   event             CalendarEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)

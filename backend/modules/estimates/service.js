@@ -69,6 +69,7 @@ class EstimatesService {
         if (data.scheduledDate === undefined) data.scheduledDate = event.startTime;
         if (data.surgeryName === undefined) data.surgeryName = event.title;
         if (data.expectedDurationMinutes === undefined) data.expectedDurationMinutes = event.durationMinutes || 0;
+        if (data.diagnoses === undefined) data.diagnoses = event.diagnoses || [];
       }
     }
 
@@ -90,6 +91,7 @@ class EstimatesService {
       packagePrice: data.packagePrice || null,
       packageIncludes: data.packageIncludes || null,
       packageTemplateId: data.packageTemplateId || null,
+      diagnoses: data.diagnoses || [],
       ...calculated
     });
 
@@ -187,7 +189,8 @@ class EstimatesService {
           packagePrice: existing.packagePrice,
           packageIncludes: existing.packageIncludes,
           packageTemplateId: existing.packageTemplateId,
-          approvalRemark: existing.approvalRemark
+          approvalRemark: existing.approvalRemark,
+          diagnoses: existing.diagnoses
         },
         estimateSurgeries: existing.estimateSurgeries,
         estimateItems: existing.estimateItems
@@ -224,7 +227,8 @@ class EstimatesService {
       packageIncludes: data.packageIncludes !== undefined ? data.packageIncludes : existing.packageIncludes,
       packageTemplateId: data.packageTemplateId !== undefined ? data.packageTemplateId : existing.packageTemplateId,
       ...calculated,
-      status: data.status || existing.status
+      status: data.status || existing.status,
+      diagnoses: data.diagnoses !== undefined ? data.diagnoses : existing.diagnoses
     });
 
     await this._handleDiscountCodeAfterSave(this.prisma, hospitalId, updatedEstimate, data, userContext, existing);

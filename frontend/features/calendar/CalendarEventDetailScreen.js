@@ -118,6 +118,13 @@ export function CalendarEventDetailScreen({ route, navigation }) {
           </View>
         )}
 
+        {event.diagnoses && event.diagnoses.length > 0 && (
+          <View style={styles.row}>
+            <Text style={styles.label}>Diagnoses</Text>
+            <Text style={styles.value}>{event.diagnoses.join(', ')}</Text>
+          </View>
+        )}
+
         {event.surgeryCost && (
           <View style={styles.row}>
             <Text style={styles.label}>Surgery Cost</Text>
@@ -163,9 +170,15 @@ export function CalendarEventDetailScreen({ route, navigation }) {
 
         {event.eventStatus === 'APPROVED' && (
           <View style={styles.actionRow}>
-            <TouchableOpacity style={[styles.actionBtn, styles.completeBtn]} onPress={() => handleAction('complete')}>
-              <Text style={styles.btnText}>Complete Event</Text>
-            </TouchableOpacity>
+            {event.eventType !== 'SURGERY' || (event.estimate && ['APPROVED', 'LOCKED'].includes(event.estimate.status)) ? (
+              <TouchableOpacity style={[styles.actionBtn, styles.completeBtn]} onPress={() => handleAction('complete')}>
+                <Text style={styles.btnText}>Complete Event</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.actionBtn, styles.disabledBtn]}>
+                <Text style={styles.disabledBtnText}>Complete Event (Pending Estimate)</Text>
+              </View>
+            )}
             <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={() => handleAction('cancel')}>
               <Text style={styles.btnText}>Cancel Event</Text>
             </TouchableOpacity>
@@ -202,5 +215,7 @@ const styles = StyleSheet.create({
   editButtonText: { color: theme.colors.primary, fontWeight: 'bold', fontSize: 14 },
   buttonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 14 },
   loader: { marginVertical: theme.spacing.xl },
-  emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.spacing.xl }
+  emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.spacing.xl },
+  disabledBtn: { backgroundColor: '#475569', opacity: 0.5 },
+  disabledBtnText: { color: '#94a3b8', fontWeight: 'bold', fontSize: 13, textAlign: 'center' }
 });

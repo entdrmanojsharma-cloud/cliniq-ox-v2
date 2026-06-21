@@ -36,6 +36,12 @@ function renderPatientSection(data) {
         <td class="metadata-label">Specialty:</td>
         <td>${doctor.specialty || 'N/A'}</td>
       </tr>
+      ${data.diagnoses && data.diagnoses.length > 0 ? `
+      <tr>
+        <td class="metadata-label">Diagnosis:</td>
+        <td colspan="3">${data.diagnoses.join(', ')}</td>
+      </tr>
+      ` : ''}
     </table>
   `;
 }

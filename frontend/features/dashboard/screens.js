@@ -13,6 +13,7 @@ import { usePatientsStore } from '../patients/store';
 import { useCalendarStore } from '../calendar/store';
 import { useInvoicesStore } from '../invoices/store';
 import { useReceiptsStore } from '../receipts/store';
+import { getEventBands } from '../calendar/calendarColorHelper';
 
 /* ─────────────────────────────────────────────────────────────
    Theme picker modal
@@ -1170,17 +1171,14 @@ export function DashboardScreen({ navigation }) {
     new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 
   const getEventStyle = (type) => {
-    switch (type) {
-      case 'SURGERY':
-        return { bg: 'rgba(239, 68, 68, 0.12)', border: '#ef4444', text: '#fca5a5' };
+    const t = (type || '').trim().toUpperCase();
+    switch (t) {
       case 'OPD':
-        return { bg: 'rgba(99, 102, 241, 0.12)', border: '#6366f1', text: '#a5b4fc' };
-      case 'MEETING':
-        return { bg: 'rgba(245, 158, 11, 0.12)', border: '#f59e0b', text: '#fcd34d' };
-      case 'SPECIAL':
-        return { bg: 'rgba(52, 211, 153, 0.12)', border: '#34d399', text: '#6ee7b7' };
+        return { bg: 'rgba(239, 68, 68, 0.15)', border: '#ef4444', text: '#f87171' };
+      case 'SURGERY':
+        return { bg: 'rgba(16, 185, 129, 0.15)', border: '#10b981', text: '#34d399' };
       default:
-        return { bg: 'rgba(148, 163, 184, 0.12)', border: '#94a3b8', text: '#cbd5e1' };
+        return { bg: 'rgba(249, 115, 22, 0.15)', border: '#f97316', text: '#fb923c' };
     }
   };
 
@@ -1219,29 +1217,13 @@ export function DashboardScreen({ navigation }) {
           <Text style={styles.kpiLabel}>👤 Total Patients</Text>
           <Text style={styles.kpiValue}>{metrics.totalPatients.toLocaleString('en-IN')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.kpiCard, { borderLeftColor: '#ec4899' }]} activeOpacity={0.7} onPress={handlePatientsPress}>
-          <Text style={styles.kpiLabel}>📈 New This Month</Text>
-          <Text style={styles.kpiValue}>{metrics.newPatientsThisMonth}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.kpiCard, { borderLeftColor: '#f59e0b' }]} activeOpacity={0.7} onPress={handleCalendarPress}>
-          <Text style={styles.kpiLabel}>📅 Appointments Today</Text>
-          <Text style={styles.kpiValue}>{metrics.todayAppointmentsCount}</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={[styles.kpiCard, { borderLeftColor: '#ef4444' }]} activeOpacity={0.7} onPress={handleCalendarPress}>
           <Text style={styles.kpiLabel}>✂️ Upcoming Surgeries</Text>
           <Text style={styles.kpiValue}>{metrics.upcomingSurgeriesCount}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.kpiCard, { borderLeftColor: '#3b82f6' }]} activeOpacity={0.7} onPress={handleInvoicesPress}>
-          <Text style={styles.kpiLabel}>💳 Pending Invoices</Text>
-          <Text style={styles.kpiValue}>{metrics.pendingInvoicesCount}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.kpiCard, { borderLeftColor: '#10b981' }]} activeOpacity={0.7} onPress={handleCollectionsPress}>
-          <Text style={styles.kpiLabel}>📥 Today's Collections</Text>
-          <Text style={styles.kpiValue}>₹{metrics.todayCollections.toLocaleString('en-IN')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.kpiCard, { borderLeftColor: '#8b5cf6' }]} 
-          activeOpacity={0.7} 
+        <TouchableOpacity
+          style={[styles.kpiCard, { borderLeftColor: '#8b5cf6' }]}
+          activeOpacity={0.7}
           onPress={() => {
             useEstimatesStore.getState().setFilters({ status: 'PENDING_APPROVAL', page: 1 });
             navigation.navigate('EstimatesList');
@@ -1250,18 +1232,6 @@ export function DashboardScreen({ navigation }) {
           <Text style={styles.kpiLabel}>⏳ Pending Estimates</Text>
           <Text style={styles.kpiValue}>{metrics.pendingEstimatesCount}</Text>
         </TouchableOpacity>
-        {(role === 'DOCTOR' || role === 'ADMIN') && (
-          <>
-            <View style={[styles.kpiCard, { borderLeftColor: '#a855f7' }]}>
-              <Text style={styles.kpiLabel}>🩺 Surgeon Fees</Text>
-              <Text style={styles.kpiValue}>₹{metrics.monthlySurgeonFees.toLocaleString('en-IN')}</Text>
-            </View>
-            <View style={[styles.kpiCard, { borderLeftColor: '#06b6d4' }]}>
-              <Text style={styles.kpiLabel}>🤝 Asst Surgeon Fees</Text>
-              <Text style={styles.kpiValue}>₹{metrics.monthlyAssistantSurgeonFees.toLocaleString('en-IN')}</Text>
-            </View>
-          </>
-        )}
       </View>
 
       {/* Main Grid View */}
@@ -1393,12 +1363,21 @@ export function DashboardScreen({ navigation }) {
 
                     <ScrollView style={styles.weekEventsScroll}>
                       {cellEvents.map((ev, evIdx) => {
-                        const palette = getEventStyle(ev.eventType);
+                        const [upperColor, middleColor, lowerColor] = getEventBands(ev.eventType);
                         return (
-                          <View key={evIdx} style={[styles.weekEventCard, { backgroundColor: palette.bg, borderLeftColor: palette.border }]}>
-                            <Text style={styles.weekEventTime}>{formatTime(ev.startTime)}</Text>
-                            <Text style={styles.weekEventTitle} numberOfLines={1}>{ev.title}</Text>
-                            <Text style={styles.weekEventMeta}>{ev.eventType}</Text>
+                          <View key={evIdx} style={styles.weekEventCard}>
+                            {/* 3-Band Background Zoning */}
+                            <View style={styles.cardBackgroundContainer}>
+                              <View style={[styles.cardBand, { backgroundColor: upperColor }]} />
+                              <View style={[styles.cardBand, { backgroundColor: middleColor }]} />
+                              <View style={[styles.cardBand, { backgroundColor: lowerColor }]} />
+                            </View>
+                            {/* Inner Content Layer */}
+                            <View style={styles.weekEventContent}>
+                              <Text style={styles.weekEventTime}>{formatTime(ev.startTime)}</Text>
+                              <Text style={styles.weekEventTitle} numberOfLines={1}>{ev.title}</Text>
+                              <Text style={styles.weekEventMeta}>{ev.eventType}</Text>
+                            </View>
                           </View>
                         );
                       })}
@@ -1419,24 +1398,60 @@ export function DashboardScreen({ navigation }) {
           {/* Date Event Panel */}
           <View style={styles.widgetCard}>
             <Text style={styles.widgetTitle}>📅 Events on {formatDateString(selectedDate)}</Text>
+            
+            {/* Widget Legend */}
+            <View style={styles.widgetLegendBar}>
+              <View style={styles.widgetLegendItem}>
+                <Text style={[styles.legendColorBox, { color: '#ef4444' }]}>■</Text>
+                <Text style={styles.widgetLegendLabel}>OPD</Text>
+              </View>
+              <View style={styles.widgetLegendItem}>
+                <Text style={[styles.legendColorBox, { color: '#10b981' }]}>■</Text>
+                <Text style={styles.widgetLegendLabel}>Surgery</Text>
+              </View>
+              <View style={styles.widgetLegendItem}>
+                <Text style={[styles.legendColorBox, { color: '#f97316' }]}>■</Text>
+                <Text style={styles.widgetLegendLabel}>Other</Text>
+              </View>
+            </View>
+
             {selectedDateEvents.map((ev, idx) => {
-              const palette = getEventStyle(ev.eventType);
+              const [upperColor, middleColor, lowerColor] = getEventBands(ev.eventType);
               return (
                 <TouchableOpacity 
                   key={idx} 
-                  style={[styles.detailedEventRow, { borderLeftColor: palette.border }]}
+                  style={styles.detailedEventRow}
                   onPress={() => navigation.navigate('CalendarEventDetail', { id: ev.id })}
                 >
-                  <View style={styles.eventRowHeader}>
-                    <Text style={styles.eventRowTime}>{formatTime(ev.startTime)} ({ev.durationMinutes || 0}m)</Text>
-                    <View style={[styles.eventTypePill, { backgroundColor: palette.bg }]}>
-                      <Text style={{ fontSize: 9, fontWeight: '800', color: palette.border }}>{ev.eventType}</Text>
-                    </View>
+                  {/* 3-Band Background Zoning */}
+                  <View style={styles.cardBackgroundContainer}>
+                    <View style={[styles.cardBand, { backgroundColor: upperColor }]} />
+                    <View style={[styles.cardBand, { backgroundColor: middleColor }]} />
+                    <View style={[styles.cardBand, { backgroundColor: lowerColor }]} />
                   </View>
-                  <Text style={styles.eventRowTitle}>{ev.title}</Text>
-                  {ev.patient && <Text style={styles.eventRowPatient}>👤 Patient: {ev.patient.name}</Text>}
-                  {ev.doctor && <Text style={styles.eventRowDoctor}>🩺 Doctor: Dr. {ev.doctor.firstName} {ev.doctor.lastName}</Text>}
-                  {ev.location && <Text style={styles.eventRowMeta}>📍 {ev.location}</Text>}
+
+                  {/* Inner Content Layer */}
+                  <View style={styles.detailedEventRowContent}>
+                    <View style={styles.eventRowHeader}>
+                      <Text style={styles.eventRowTime}>{formatTime(ev.startTime)} ({ev.durationMinutes || 0}m)</Text>
+                      <View style={[
+                        styles.dashboardCategoryTag,
+                        ev.eventType === 'SURGERY' ? styles.tagSurgery :
+                        ev.eventType === 'OPD' ? styles.tagOpd : styles.tagOther
+                      ]}>
+                        <Text style={[
+                          ev.eventType === 'SURGERY' ? styles.categoryTagTextSurgery :
+                          ev.eventType === 'OPD' ? styles.categoryTagTextOpd : styles.categoryTagTextOther
+                        ]}>
+                          {ev.eventType}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.eventRowTitle}>{ev.title}</Text>
+                    {ev.patient && <Text style={styles.eventRowPatient}>👤 Patient: {ev.patient.name}</Text>}
+                    {ev.doctor && <Text style={styles.eventRowDoctor}>🩺 Doctor: Dr. {ev.doctor.firstName} {ev.doctor.lastName}</Text>}
+                    {ev.location && <Text style={styles.eventRowMeta}>📍 {ev.location}</Text>}
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -1571,26 +1586,26 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     flex: 1,
-    minWidth: '15%',
+    minWidth: '28%',
     backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 14,
+    padding: 20,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderLeftWidth: 4,
+    borderLeftWidth: 5,
   },
   kpiLabel: {
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: '800',
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
   kpiValue: {
-    fontSize: 16,
+    fontSize: 28,
     fontWeight: '900',
     color: theme.colors.text,
-    marginTop: 4,
+    marginTop: 6,
   },
   dashboardGrid: {
     flexDirection: 'row',
@@ -1797,10 +1812,27 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   weekEventCard: {
+    backgroundColor: theme.colors.surface,
     borderRadius: 6,
-    padding: 6,
-    borderLeftWidth: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     marginBottom: 4,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  weekEventContent: {
+    padding: 6,
+    zIndex: 1,
+    backgroundColor: 'transparent',
+  },
+  cardBackgroundContainer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    flexDirection: 'column',
+    zIndex: 0,
+  },
+  cardBand: {
+    flex: 1,
   },
   weekEventTime: {
     fontSize: 8,
@@ -1844,12 +1876,43 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     letterSpacing: 0.3,
   },
+  widgetLegendBar: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    marginBottom: 10,
+    gap: 12
+  },
+  widgetLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4
+  },
+  widgetLegendLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: theme.colors.textMuted
+  },
+  legendColorBox: {
+    fontSize: 14,
+    lineHeight: 16
+  },
   detailedEventRow: {
-    padding: 10,
     backgroundColor: theme.colors.background,
     borderRadius: 10,
-    borderLeftWidth: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     marginBottom: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  detailedEventRowContent: {
+    padding: 10,
+    zIndex: 1,
+    backgroundColor: 'transparent',
   },
   eventRowHeader: {
     flexDirection: 'row',
@@ -1861,11 +1924,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.textMuted,
   },
-  eventTypePill: {
+  dashboardCategoryTag: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
+  tagSurgery: { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' },
+  tagOpd: { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)' },
+  tagOther: { backgroundColor: 'rgba(249, 115, 22, 0.15)', borderWidth: 1, borderColor: 'rgba(249, 115, 22, 0.3)' },
+  categoryTagTextSurgery: { fontSize: 9, fontWeight: '800', color: '#34d399' },
+  categoryTagTextOpd: { fontSize: 9, fontWeight: '800', color: '#f87171' },
+  categoryTagTextOther: { fontSize: 9, fontWeight: '800', color: '#fb923c' },
   eventRowTitle: {
     fontSize: 12,
     fontWeight: '800',

@@ -22,7 +22,8 @@ class SurgeriesService {
       take: limit,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
-      category: query.category
+      category: query.category,
+      search: query.search
     });
 
     return {

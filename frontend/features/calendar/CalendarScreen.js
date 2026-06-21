@@ -12,6 +12,7 @@ import { useCalendarStore } from './store';
 import { theme } from '../../shared/styles/theme';
 import { useResponsive } from '../../shared/hooks/useResponsive';
 import { DobDropdownPicker } from '../../shared/components/DobDropdownPicker';
+import { getEventBands } from './calendarColorHelper';
 
 // ─── Frontend occurrence expansion ───────────────────────────────────────────
 const getFrontOccurrences = (event, startLimit, endLimit) => {
@@ -273,6 +274,22 @@ export function CalendarScreen({ navigation }) {
         </View>
       )}
 
+      {/* ── Legend Bar ── */}
+      <View style={styles.legendBar}>
+        <View style={styles.legendItem}>
+          <Text style={[styles.legendColorBox, { color: '#ef4444' }]}>■</Text>
+          <Text style={styles.legendLabel}>OPD</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <Text style={[styles.legendColorBox, { color: '#10b981' }]}>■</Text>
+          <Text style={styles.legendLabel}>Surgery</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <Text style={[styles.legendColorBox, { color: '#f97316' }]}>■</Text>
+          <Text style={styles.legendLabel}>Other Events</Text>
+        </View>
+      </View>
+
       {/* ── Event List ── */}
       {loading ? (
         <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
@@ -281,50 +298,72 @@ export function CalendarScreen({ navigation }) {
           data={filteredEvents}
           keyExtractor={(item) => item.occurrenceId || item.id}
           contentContainerStyle={[styles.listContent, isMobile && styles.listContentMobile]}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.card, isMobile && styles.cardMobile]}
-              onPress={() => navigation.navigate('CalendarEventDetail', { id: item.id })}
-            >
-              <View style={styles.cardHeader}>
-                <View style={[styles.categoryTag, item.eventType === 'SURGERY' ? styles.tagSurgery : styles.tagOther]}>
-                  <Text style={styles.categoryTagText}>{item.eventType}</Text>
+          renderItem={({ item }) => {
+            const [upperColor, middleColor, lowerColor] = getEventBands(item.eventType);
+            return (
+              <TouchableOpacity
+                style={[styles.card, isMobile && styles.cardMobile]}
+                onPress={() => navigation.navigate('CalendarEventDetail', { id: item.id })}
+              >
+                {/* 3-Band Background Zoning */}
+                <View style={styles.cardBackgroundContainer}>
+                  <View style={[styles.cardBand, { backgroundColor: upperColor }]} />
+                  <View style={[styles.cardBand, { backgroundColor: middleColor }]} />
+                  <View style={[styles.cardBand, { backgroundColor: lowerColor }]} />
                 </View>
-                <View style={[
-                  styles.statusTag,
-                  item.eventStatus === 'APPROVED' ? styles.statusApproved :
-                  item.eventStatus === 'COMPLETED' ? styles.statusCompleted : styles.statusPending
-                ]}>
-                  <Text style={styles.statusTagText}>{item.eventStatus}</Text>
+
+                {/* Inner Content Layer */}
+                <View style={[styles.cardContent, isMobile && styles.cardContentMobile]}>
+                  <View style={styles.cardHeader}>
+                    <View style={[
+                      styles.categoryTag,
+                      item.eventType === 'SURGERY' ? styles.tagSurgery :
+                      item.eventType === 'OPD' ? styles.tagOpd : styles.tagOther
+                    ]}>
+                      <Text style={[
+                        item.eventType === 'SURGERY' ? styles.categoryTagTextSurgery :
+                        item.eventType === 'OPD' ? styles.categoryTagTextOpd : styles.categoryTagTextOther
+                      ]}>
+                        {item.eventType}
+                      </Text>
+                    </View>
+                    <View style={[
+                      styles.statusTag,
+                      item.eventStatus === 'APPROVED' ? styles.statusApproved :
+                      item.eventStatus === 'COMPLETED' ? styles.statusCompleted : styles.statusPending
+                    ]}>
+                      <Text style={styles.statusTagText}>{item.eventStatus}</Text>
+                    </View>
+                  </View>
+
+                  <Text style={[styles.cardTitle, isMobile && styles.cardTitleMobile]}>{item.title}</Text>
+
+                  <View style={[styles.cardMetaRow, isMobile && styles.cardMetaRowMobile]}>
+                    <Text style={styles.cardMeta}>⏰ {formatTime(item.startTime)} ({item.durationMinutes || 0}m)</Text>
+                    {item.otRoom && <Text style={styles.cardMeta}>🏥 {item.otRoom.roomName}</Text>}
+                    {item.location && !item.otRoom && <Text style={styles.cardMeta}>📍 {item.location}</Text>}
+                  </View>
+
+                  {item.recurrenceRule && (
+                    <Text style={styles.recurrenceText}>🔄 {formatRecurrence(item.recurrenceRule)}</Text>
+                  )}
+
+                  {item.description && (
+                    <Text style={styles.descriptionText} numberOfLines={2}>📝 {item.description}</Text>
+                  )}
+
+                  <View style={[styles.cardFooter, isMobile && styles.cardFooterMobile]}>
+                    <Text style={styles.cardSubText} numberOfLines={1}>
+                      👤 {item.patient ? item.patient.name : 'No patient'}
+                    </Text>
+                    <Text style={styles.cardSubText} numberOfLines={1}>
+                      🩺 {item.doctor ? `${item.doctor.firstName} ${item.doctor.lastName}` : 'No doctor'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-
-              <Text style={[styles.cardTitle, isMobile && styles.cardTitleMobile]}>{item.title}</Text>
-
-              <View style={[styles.cardMetaRow, isMobile && styles.cardMetaRowMobile]}>
-                <Text style={styles.cardMeta}>⏰ {formatTime(item.startTime)} ({item.durationMinutes || 0}m)</Text>
-                {item.otRoom && <Text style={styles.cardMeta}>🏥 {item.otRoom.roomName}</Text>}
-                {item.location && !item.otRoom && <Text style={styles.cardMeta}>📍 {item.location}</Text>}
-              </View>
-
-              {item.recurrenceRule && (
-                <Text style={styles.recurrenceText}>🔄 {formatRecurrence(item.recurrenceRule)}</Text>
-              )}
-
-              {item.description && (
-                <Text style={styles.descriptionText} numberOfLines={2}>📝 {item.description}</Text>
-              )}
-
-              <View style={[styles.cardFooter, isMobile && styles.cardFooterMobile]}>
-                <Text style={styles.cardSubText} numberOfLines={1}>
-                  👤 {item.patient ? item.patient.name : 'No patient'}
-                </Text>
-                <Text style={styles.cardSubText} numberOfLines={1}>
-                  🩺 {item.doctor ? `${item.doctor.firstName} ${item.doctor.lastName}` : 'No doctor'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
+              </TouchableOpacity>
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyEmoji}>📭</Text>
@@ -439,16 +478,62 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: theme.colors.surface,
-    padding: 14, borderRadius: 12, marginBottom: 10,
-    borderWidth: 1, borderColor: theme.colors.border
+    borderRadius: 12, marginBottom: 10,
+    borderWidth: 1, borderColor: theme.colors.border,
+    position: 'relative',
+    overflow: 'hidden'
   },
-  cardMobile: { padding: 11, borderRadius: 10 },
+  cardMobile: { borderRadius: 10 },
+  cardBackgroundContainer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    flexDirection: 'column',
+    zIndex: 0
+  },
+  cardBand: {
+    flex: 1
+  },
+  cardContent: {
+    padding: 14,
+    zIndex: 1,
+    backgroundColor: 'transparent'
+  },
+  cardContentMobile: {
+    padding: 11
+  },
+  legendBar: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    gap: 16
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  legendColorBox: {
+    fontSize: 16,
+    lineHeight: 18
+  },
+  legendLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.textMuted
+  },
 
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   categoryTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  tagSurgery: { backgroundColor: '#fee2e2' },
-  tagOther: { backgroundColor: theme.colors.background },
-  categoryTagText: { fontSize: 10, fontWeight: '700', color: '#b91c1c' },
+  tagSurgery: { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' },
+  tagOpd: { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)' },
+  tagOther: { backgroundColor: 'rgba(249, 115, 22, 0.15)', borderWidth: 1, borderColor: 'rgba(249, 115, 22, 0.3)' },
+  categoryTagTextSurgery: { fontSize: 10, fontWeight: '700', color: '#34d399' },
+  categoryTagTextOpd: { fontSize: 10, fontWeight: '700', color: '#f87171' },
+  categoryTagTextOther: { fontSize: 10, fontWeight: '700', color: '#fb923c' },
   statusTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   statusApproved: { backgroundColor: '#dcfce7' },
   statusCompleted: { backgroundColor: '#e0e7ff' },
