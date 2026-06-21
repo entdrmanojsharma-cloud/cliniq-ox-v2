@@ -12,12 +12,18 @@ import { useAuthStore } from '../../features/auth/store';
 import { useLoadingStore } from './loadingStore';
 
 const getBaseUrl = () => {
+  // Production: use environment variable set in Netlify / Render
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return `${process.env.EXPO_PUBLIC_API_URL}/api/v1`;
+  }
+  // Local development: auto-detect hostname so it works on any machine
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined' && window.location) {
       return `http://${window.location.hostname}:3000/api/v1`;
     }
     return 'http://localhost:3000/api/v1';
   }
+  // Native mobile (Expo Go on phone, same WiFi)
   return 'http://192.168.0.124:3000/api/v1';
 };
 

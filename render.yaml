@@ -1,0 +1,21 @@
+# render.yaml — Render.com deployment configuration for Cliniq-OX backend
+# This file tells Render how to build and run the backend API server.
+
+services:
+  - type: web
+    name: cliniq-ox-api
+    runtime: node
+    region: singapore
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false        # You enter this in Render dashboard (Supabase URL)
+      - key: JWT_SECRET
+        sync: false        # You enter this in Render dashboard
+      - key: X_HOSPITAL_ID
+        sync: false        # You enter this in Render dashboard
+    healthCheckPath: /api/v1/health

@@ -427,6 +427,11 @@ const dataManagementService = new DataManagementService(dataManagementRepo, pris
 const dataManagementController = new DataManagementController(dataManagementService);
 const dataManagementRouter = createDataManagementRouter(dataManagementController);
 
+// --- Health Check (for Render.com monitoring) ---
+app.get('/api/v1/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
 // --- Mount Routes ---
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/data-management', dataManagementRouter);
