@@ -1,14 +1,10 @@
-# netlify.toml — Netlify deployment configuration for Cliniq-OX frontend
-# This file tells Netlify how to build and serve the React Native Web app.
-
+# netlify.toml — Netlify configuration inside frontend directory
 [build]
-  base    = "frontend"
   command = "EXPO_PUBLIC_API_URL=https://cliniq-ox-api.onrender.com npx expo export --platform web"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
-  EXPO_PUBLIC_API_URL = "https://cliniq-ox-api.onrender.com"
 
 # Redirect all routes to index.html (needed for React Navigation routing)
 [[redirects]]
