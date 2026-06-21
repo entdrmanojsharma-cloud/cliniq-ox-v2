@@ -2,8 +2,6 @@
   Purpose: Business service orchestration layer for the Documents Module.
   Responsibility: Prepares transaction contexts, runs the HTML template engine, triggers HTML-to-PDF rendering, and updates archival records.
 */
-
-const puppeteer = require('puppeteer');
 const writeAuditLog = require('../../shared/audit');
 
 const renderEstimate = require('./templates/estimate');
@@ -189,6 +187,12 @@ class DocumentsService {
   async renderHtmlToPdf(htmlContent) {
     let browser = null;
     try {
+      let puppeteer;
+      try {
+        puppeteer = require('puppeteer');
+      } catch (e) {
+        throw new Error('PDF generation engine is not installed on this server. Please use HTML Print Preview.');
+      }
       browser = await puppeteer.launch({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
