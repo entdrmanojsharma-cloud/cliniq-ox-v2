@@ -175,9 +175,9 @@ const webStyles = {
     gap: '4px',
   },
   selectLabel: {
-    fontSize: '10px',
-    fontWeight: '700',
-    color: 'var(--text-muted, #cbd5e1)',
+    fontSize: '11px',
+    fontWeight: '800',
+    color: '#334155', // darker for better contrast
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },

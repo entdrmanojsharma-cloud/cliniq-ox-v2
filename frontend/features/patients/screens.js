@@ -196,7 +196,7 @@ const SkeletonList = () => (
 export function PatientsListScreen({ route, navigation }) {
   const { patients, fetchPatients, loading, page, limit, total, search, pmjay, setFilters } = usePatientsStore();
   const [dateStart, setDateStart] = useState('');
-  const [dateEnd, setDateEnd] = useState('');
+  const [dateEnd, setDateEnd] = useState(new Date().toISOString().split('T')[0]);
   const [matchingPatientIds, setMatchingPatientIds] = useState(null);
   const [loadingEvents, setLoadingEvents] = useState(false);
 
@@ -278,58 +278,68 @@ export function PatientsListScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={theme.typography.title}>Patients Directory</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <Text style={theme.typography.title}>Patient Directory</Text>
+        <TouchableOpacity 
+          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 8 }}
+          onPress={() => navigation.navigate('PatientForm', { id: null })}
+        >
+          <Text style={{ fontWeight: '800', color: theme.colors.text }}>ADD Patient</Text>
+        </TouchableOpacity>
+      </View>
       <TextInput
         style={styles.searchInput}
-        placeholder="Search by name or UHID..."
+        placeholder="Search by phone number, name, UHID..."
         placeholderTextColor={theme.colors.textMuted}
         value={search}
         onChangeText={(val) => setFilters({ search: val, page: 1 })}
       />
 
-      <Text style={styles.label}>Filter by Scheduled Surgery Date Range</Text>
+      <Text style={styles.label}>Filter By Date</Text>
       <View style={{ flexDirection: 'row', gap: 12, marginVertical: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <View style={{ flex: 1, minWidth: 260 }}>
-          <Text style={{ fontSize: 11, color: theme.colors.textMuted, marginBottom: 2 }}>From Date</Text>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#334155', marginBottom: 2 }}>From Date</Text>
           <DobDropdownPicker value={dateStart} onChange={setDateStart} />
         </View>
         <View style={{ flex: 1, minWidth: 260 }}>
-          <Text style={{ fontSize: 11, color: theme.colors.textMuted, marginBottom: 2 }}>To Date</Text>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#334155', marginBottom: 2 }}>To Date</Text>
           <DobDropdownPicker value={dateEnd} onChange={setDateEnd} />
         </View>
-        {(dateStart || dateEnd) && (
-          <TouchableOpacity 
-            style={{ height: 46, paddingHorizontal: 16, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 2 }}
-            onPress={() => { setDateStart(''); setDateEnd(''); }}
-          >
-            <Text style={{ color: theme.colors.danger, fontWeight: '700', fontSize: 13 }}>Clear</Text>
-          </TouchableOpacity>
-        )}
+
       </View>
 
       <Text style={styles.label}>Patient Scheme Category</Text>
       <View style={styles.schemeFilterRow}>
         {[
-          { key: 'all', label: 'All Patients' },
-          { key: 'pmjay', label: 'PMJAY' },
-          { key: 'others', label: 'Others (Non-PMJAY)' }
+          { key: 'all', label: 'All', activeColor: '#10b981' },
+          { key: 'pmjay', label: 'PMJAY', activeColor: '#f97316' },
+          { key: 'others', label: 'OTHERS', activeColor: '#3b82f6' }
         ].map(opt => (
           <TouchableOpacity
             key={opt.key}
             style={[
               styles.schemeFilterButton,
-              pmjay === opt.key && styles.schemeFilterButtonActive
+              pmjay === opt.key && { backgroundColor: opt.activeColor, borderColor: opt.activeColor }
             ]}
             onPress={() => setFilters({ pmjay: opt.key, page: 1 })}
           >
             <Text style={[
               styles.schemeFilterText,
-              pmjay === opt.key && styles.schemeFilterTextActive
+              pmjay === opt.key && { color: '#ffffff', fontWeight: '800' }
             ]}>
               {opt.label}
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      <View style={styles.tableHeader}>
+        <Text style={[styles.tableHeaderText, { width: 40 }]}>Sr Num</Text>
+        <Text style={[styles.tableHeaderText, { flex: 2 }]}>Name</Text>
+        <Text style={[styles.tableHeaderText, { flex: 1 }]}>Age</Text>
+        <Text style={[styles.tableHeaderText, { flex: 1 }]}>Gender</Text>
+        <Text style={[styles.tableHeaderText, { flex: 1 }]}>PMJAY Status</Text>
+        <View style={{ width: 38 }} />
       </View>
 
       {(loading || loadingEvents) && displayedPatients.length === 0 ? (
@@ -339,50 +349,31 @@ export function PatientsListScreen({ route, navigation }) {
           data={displayedPatients}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingBottom: 88 }}
-          renderItem={({ item }) => {
-            const nameParts = item.name ? item.name.trim().split(/\s+/) : [];
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '—';
-            
+          renderItem={({ item, index }) => {
             const age = calculateAge(item.dateOfBirth);
             const genderStr = item.gender ? item.gender.toLowerCase() : '';
             const capitalizedGender = genderStr.charAt(0).toUpperCase() + genderStr.slice(1);
-            
-            const { aadhaar } = parsePatientNotes(item.notes);
-            const maskedAadhaar = aadhaar ? `XXXX-XXXX-${aadhaar.slice(-4)}` : '—';
             const hasPmjay = !!item.pmjayNumber;
+            const srNum = index + 1;
 
             return (
               <TouchableOpacity 
-                style={styles.patientCard}
+                style={styles.patientTableRow}
                 onPress={() => navigation.navigate('PatientDetail', { id: item.id })}
                 activeOpacity={0.8}
               >
-                <View style={styles.cardContent}>
-                  <View style={styles.cardRow}>
-                    <View style={[styles.cardCol, { flex: 2 }]}>
-                      <Text style={styles.cardLabel}>Patient Name</Text>
-                      <Text style={styles.cardValue} numberOfLines={1}>{item.name}</Text>
-                    </View>
-                    <View style={styles.cardCol}>
-                      <Text style={styles.cardLabel}>Age</Text>
-                      <Text style={styles.cardValue}>{age}</Text>
-                    </View>
-                    <View style={styles.cardCol}>
-                      <Text style={styles.cardLabel}>Gender</Text>
-                      <Text style={styles.cardValue}>{capitalizedGender}</Text>
-                    </View>
-                    <View style={styles.cardCol}>
-                      <Text style={styles.cardLabel}>PMJAY Status</Text>
-                      <View style={[styles.statusBadge, hasPmjay ? styles.statusBadgeYes : styles.statusBadgeNo]}>
-                        <Text style={[styles.statusBadgeText, { color: hasPmjay ? theme.colors.success : theme.colors.danger }]}>
-                          {hasPmjay ? 'Yes' : 'No'}
-                        </Text>
-                      </View>
-                    </View>
+                <Text style={[styles.tableCellText, { width: 40 }]}>{srNum}</Text>
+                <Text style={[styles.tableCellText, { flex: 2 }]} numberOfLines={1}>{item.name}</Text>
+                <Text style={[styles.tableCellText, { flex: 1 }]}>{age}</Text>
+                <Text style={[styles.tableCellText, { flex: 1 }]}>{capitalizedGender}</Text>
+                <View style={[{ flex: 1, alignItems: 'flex-start' }]}>
+                  <View style={[styles.statusBadge, hasPmjay ? styles.statusBadgeYes : styles.statusBadgeNo]}>
+                    <Text style={[styles.statusBadgeText, { color: hasPmjay ? theme.colors.success : theme.colors.danger }]}>
+                      {hasPmjay ? 'Yes' : 'No'}
+                    </Text>
                   </View>
                 </View>
-                <View style={styles.cardActionWrapper}>
+                <View style={{ width: 38, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={styles.cardAction}>➔</Text>
                 </View>
               </TouchableOpacity>
@@ -402,12 +393,6 @@ export function PatientsListScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
       
-      <TouchableOpacity 
-        style={styles.fab} 
-        onPress={() => navigation.navigate('PatientForm', { id: null })}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -834,49 +819,44 @@ const styles = StyleSheet.create({
   searchInput: { backgroundColor: theme.colors.surface, color: theme.colors.text, padding: 12, borderRadius: 8, marginVertical: theme.spacing.sm, borderWidth: 1, borderColor: theme.colors.border, fontSize: 14, minHeight: 44 },
   loader: { marginVertical: theme.spacing.xl },
   
-  // Two-row patient card
-  patientCard: { 
-    backgroundColor: theme.colors.surface, 
-    borderRadius: 14, 
-    marginVertical: 6, 
-    flexDirection: 'row', 
-    borderWidth: 1, 
-    borderColor: theme.colors.border, 
-    minHeight: 70,
-    overflow: 'hidden'
-  },
-  cardContent: {
-    flex: 1,
-    padding: 12,
-    justifyContent: 'center',
-  },
-  cardRow: {
+  patientTableRow: {
+    backgroundColor: theme.colors.surface,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    // Add subtle shadow for more interactive feel
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  cardCol: {
-    flex: 1,
-    minWidth: 50,
+  tableCellText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.colors.text,
     paddingRight: 6,
   },
-  cardLabel: {
-    fontSize: 9,
-    color: theme.colors.textMuted,
-    fontWeight: '700',
+  tableHeader: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: theme.colors.border,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  tableHeaderText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#334155',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  cardValue: {
-    fontSize: 12.5,
-    color: theme.colors.text,
-    fontWeight: '600',
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    marginVertical: 8,
+    paddingRight: 6,
   },
   statusBadge: {
     paddingHorizontal: 6,
@@ -909,7 +889,7 @@ const styles = StyleSheet.create({
   },
 
   emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.spacing.xl },
-  pagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: theme.spacing.md, paddingRight: 80 },
+  pagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: theme.spacing.md },
   pageButton: { backgroundColor: theme.colors.surface, paddingHorizontal: theme.spacing.md, paddingVertical: 10, borderRadius: 8, minHeight: 44, justifyContent: 'center' },
   pageButtonText: { color: theme.colors.text, fontWeight: '600' },
   fab: { position: 'absolute', bottom: 20, right: 20, backgroundColor: theme.colors.primary, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 8 },

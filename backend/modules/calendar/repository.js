@@ -51,7 +51,7 @@ class CalendarRepository {
             select: { firstName: true, lastName: true, specialty: true }
           },
           patient: {
-            select: { name: true, uhid: true }
+            select: { name: true, uhid: true, dateOfBirth: true, gender: true }
           },
           otRoom: {
             select: { roomName: true }

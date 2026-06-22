@@ -13,6 +13,7 @@ import { usePatientsStore } from '../patients/store';
 import { useCalendarStore } from '../calendar/store';
 import { useInvoicesStore } from '../invoices/store';
 import { useReceiptsStore } from '../receipts/store';
+import { useEstimatesStore } from '../estimates/store';
 import { getEventBands } from '../calendar/calendarColorHelper';
 
 /* ─────────────────────────────────────────────────────────────
@@ -936,9 +937,10 @@ export function DashboardScreen({ navigation }) {
   });
 
   // Calendar View states
-  const [viewMode, setViewMode] = useState('month'); // 'month' or 'week'
+  const [viewMode, setViewMode] = useState('week'); // 'month' or 'week'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [allEvents, setAllEvents] = useState([]);
   
   // Right panel clinical widget states
@@ -1012,6 +1014,8 @@ export function DashboardScreen({ navigation }) {
       
       const todayEvents = events.filter(e => e.startTime.split('T')[0] === todayStr);
       const todayAppointmentsCount = todayEvents.length;
+      const todaySurgeriesCount = todayEvents.filter(e => e.eventType === 'SURGERY').length;
+      const todayOpdCount = todayEvents.filter(e => e.eventType === 'OPD' || e.eventType === 'IPD').length;
       
       const upcomingSurgeriesCount = events.filter(e => {
         const eDate = e.startTime.split('T')[0];
@@ -1028,6 +1032,8 @@ export function DashboardScreen({ navigation }) {
         todayAppointmentsCount,
         upcomingSurgeriesCount,
         pendingInvoicesCount,
+        todaySurgeriesCount,
+        todayOpdCount,
         todayCollections,
         pendingEstimatesCount: monthStatsRes.estimates?.pendingCount || 0,
         monthlySurgeonFees: monthStatsRes.fees?.surgeon || 0,
@@ -1140,6 +1146,7 @@ export function DashboardScreen({ navigation }) {
     const today = new Date();
     setCurrentDate(today);
     setSelectedDate(today.toISOString().split('T')[0]);
+    setViewMode('week');
   };
 
   const handlePrev = () => {
@@ -1162,7 +1169,16 @@ export function DashboardScreen({ navigation }) {
     setCurrentDate(d);
   };
 
-  const selectedDateEvents = expandedEvents.filter(e => e.startTime.split('T')[0] === selectedDate);
+  let selectedDateEvents = expandedEvents.filter(e => e.startTime.split('T')[0] === selectedDate);
+  if (selectedCategory) {
+    selectedDateEvents = selectedDateEvents.filter(e => {
+      const t = e.eventType;
+      if (selectedCategory === 'ROUTINE') return t === 'OPD' || t === 'IPD';
+      if (selectedCategory === 'SURGERY') return t === 'SURGERY';
+      return t !== 'OPD' && t !== 'IPD' && t !== 'SURGERY';
+    });
+  }
+
   const todayStr = new Date().toISOString().split('T')[0];
   const todayEvents = expandedEvents.filter(e => e.startTime.split('T')[0] === todayStr);
   const upcomingSurgeries = expandedEvents.filter(e => e.eventType === 'SURGERY' && e.startTime.split('T')[0] >= todayStr).slice(0, 5);
@@ -1184,9 +1200,29 @@ export function DashboardScreen({ navigation }) {
 
   // Header display
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const getWeekHeaderLabel = () => {
+    const startD = startOfWeek.getDate();
+    const startM = months[startOfWeek.getMonth()];
+    const startMShort = startM.substring(0,3);
+    const startY = startOfWeek.getFullYear().toString().substring(2);
+
+    const endD = endOfWeek.getDate();
+    const endM = months[endOfWeek.getMonth()];
+    const endMShort = endM.substring(0,3);
+    const endY = endOfWeek.getFullYear().toString().substring(2);
+
+    if (startM === endM) {
+      return `${startD}-${endD} ${startM} ${startY}`;
+    } else if (startY === endY) {
+      return `${startD} ${startMShort} - ${endD} ${endMShort} ${startY}`;
+    } else {
+      return `${startD} ${startMShort} ${startY} - ${endD} ${endMShort} ${endY}`;
+    }
+  };
+
   const viewHeaderLabel = viewMode === 'month' 
     ? `${months[month]} ${year}`
-    : `W/C ${startOfWeek.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+    : getWeekHeaderLabel();
 
   const displayName = (firstName && lastName)
     ? `${firstName} ${lastName}`
@@ -1211,16 +1247,50 @@ export function DashboardScreen({ navigation }) {
         </View>
       </View>
 
+      {/* Global Patient Search */}
+      <TextInput
+        style={{
+          backgroundColor: theme.colors.surface,
+          borderWidth: 1,
+          borderColor: theme.colors.border,
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          height: 48,
+          marginBottom: 20,
+          color: theme.colors.text,
+        }}
+        placeholder="Search patients by phone number, name, UHID..."
+        placeholderTextColor={theme.colors.textMuted}
+        returnKeyType="search"
+        onSubmitEditing={(e) => {
+          const val = e.nativeEvent.text;
+          if(val.trim().length > 0) {
+            usePatientsStore.getState().setFilters({ search: val, page: 1, pmjay: 'all' });
+            navigation.navigate('PatientsList');
+          }
+        }}
+      />
+
       {/* KPI Section */}
       <View style={styles.kpiRow}>
-        <TouchableOpacity style={[styles.kpiCard, { borderLeftColor: '#6366f1' }]} activeOpacity={0.7} onPress={handlePatientsPress}>
-          <Text style={styles.kpiLabel}>👤 Total Patients</Text>
-          <Text style={styles.kpiValue}>{metrics.totalPatients.toLocaleString('en-IN')}</Text>
+        <TouchableOpacity 
+          style={[styles.kpiCard, { borderLeftColor: '#10b981' }]} 
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('Calendar')}
+        >
+          <Text style={styles.kpiLabel}>✂️ Today's Surgeries</Text>
+          <Text style={styles.kpiValue}>{metrics.todaySurgeriesCount || 0}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.kpiCard, { borderLeftColor: '#ef4444' }]} activeOpacity={0.7} onPress={handleCalendarPress}>
-          <Text style={styles.kpiLabel}>✂️ Upcoming Surgeries</Text>
-          <Text style={styles.kpiValue}>{metrics.upcomingSurgeriesCount}</Text>
+        
+        <TouchableOpacity 
+          style={[styles.kpiCard, { borderLeftColor: '#ef4444' }]} 
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('Calendar')}
+        >
+          <Text style={styles.kpiLabel}>👤 Today's OPD Events</Text>
+          <Text style={styles.kpiValue}>{metrics.todayOpdCount || 0}</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.kpiCard, { borderLeftColor: '#8b5cf6' }]}
           activeOpacity={0.7}
@@ -1229,8 +1299,16 @@ export function DashboardScreen({ navigation }) {
             navigation.navigate('EstimatesList');
           }}
         >
-          <Text style={styles.kpiLabel}>⏳ Pending Estimates</Text>
+          <Text style={styles.kpiLabel}>📑 Pending Estimates</Text>
           <Text style={styles.kpiValue}>{metrics.pendingEstimatesCount}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.kpiCardSlim, { borderLeftColor: '#3b82f6' }]}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('PatientsList')}
+        >
+          <Text style={styles.kpiLabelSlim} numberOfLines={1}>👥 Total Patients - <Text style={styles.kpiValueInline}>{metrics.totalPatients || 0}</Text></Text>
         </TouchableOpacity>
       </View>
 
@@ -1241,33 +1319,36 @@ export function DashboardScreen({ navigation }) {
         <View style={styles.calendarColumn}>
           
           {/* Calendar Header with Controls */}
-          <View style={styles.calendarControlsHeader}>
-            <View style={styles.navControls}>
+          <View style={[styles.calendarControlsHeader, { justifyContent: 'space-between', gap: 4, flexWrap: 'wrap' }]}>
+            <View style={[styles.navControls, { gap: 4, flexShrink: 1 }]}>
               <TouchableOpacity style={styles.btnNav} onPress={handlePrev}>
                 <Text style={styles.btnNavText}>‹</Text>
               </TouchableOpacity>
-              <Text style={styles.calendarPeriodLabel}>{viewHeaderLabel}</Text>
+              <Text style={[styles.calendarPeriodLabel, { minWidth: 'auto', fontSize: 12, flexShrink: 1 }]} numberOfLines={1}>{viewHeaderLabel}</Text>
               <TouchableOpacity style={styles.btnNav} onPress={handleNext}>
                 <Text style={styles.btnNavText}>›</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.btnToday} onPress={handleToday}>
-                <Text style={styles.btnTodayText}>Today</Text>
-              </TouchableOpacity>
             </View>
 
-            <View style={styles.toggleRow}>
-              <TouchableOpacity 
-                style={[styles.toggleBtn, viewMode === 'month' && styles.toggleBtnActive]}
-                onPress={() => setViewMode('month')}
-              >
-                <Text style={[styles.toggleText, viewMode === 'month' && styles.toggleTextActive]}>Month</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <TouchableOpacity style={styles.btnToday} onPress={handleToday}>
+                <Text style={[styles.btnTodayText, { fontSize: 11, fontWeight: '700' }]}>Today</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.toggleBtn, viewMode === 'week' && styles.toggleBtnActive]}
-                onPress={() => setViewMode('week')}
-              >
-                <Text style={[styles.toggleText, viewMode === 'week' && styles.toggleTextActive]}>Week</Text>
-              </TouchableOpacity>
+
+              <View style={styles.toggleRow}>
+                <TouchableOpacity 
+                  style={[styles.toggleBtn, viewMode === 'week' && styles.toggleBtnActive, { paddingHorizontal: 8 }]}
+                  onPress={() => setViewMode('week')}
+                >
+                  <Text style={[styles.toggleText, viewMode === 'week' && styles.toggleTextActive]}>Week</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.toggleBtn, viewMode === 'month' && styles.toggleBtnActive, { paddingHorizontal: 8 }]}
+                  onPress={() => setViewMode('month')}
+                >
+                  <Text style={[styles.toggleText, viewMode === 'month' && styles.toggleTextActive]}>Month</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -1340,52 +1421,74 @@ export function DashboardScreen({ navigation }) {
                 const isToday = cellDateStr === todayStr;
                 
                 const cellEvents = weekEvents.filter(e => e.startTime.split('T')[0] === cellDateStr);
+                
+                const routineCount = cellEvents.filter(e => e.eventType === 'OPD' || e.eventType === 'IPD').length;
+                const surgeryCount = cellEvents.filter(e => e.eventType === 'SURGERY').length;
+                const specialCount = cellEvents.filter(e => e.eventType !== 'OPD' && e.eventType !== 'IPD' && e.eventType !== 'SURGERY').length;
 
                 return (
-                  <TouchableOpacity 
+                  <View
                     key={idx} 
                     style={[
                       styles.weekDayColumn,
                       isToday && styles.weekDayColumnToday,
-                      isSelected && styles.weekDayColumnSelected
+                      isSelected && styles.weekDayColumnSelected,
+                      { paddingBottom: 0 }
                     ]}
-                    onPress={() => setSelectedDate(cellDateStr)}
-                    activeOpacity={0.8}
                   >
-                    <View style={styles.weekColumnHeader}>
+                    <TouchableOpacity style={styles.weekColumnHeader} onPress={() => { setSelectedDate(cellDateStr); setSelectedCategory(null); }}>
                       <Text style={[styles.weekDayLabel, isToday && styles.weekDayTodayText]}>
                         {day.toLocaleDateString('en-IN', { weekday: 'short' })}
                       </Text>
                       <Text style={[styles.weekDayNum, isToday && styles.weekDayNumToday]}>
                         {day.getDate()}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
 
-                    <ScrollView style={styles.weekEventsScroll}>
-                      {cellEvents.map((ev, evIdx) => {
-                        const [upperColor, middleColor, lowerColor] = getEventBands(ev.eventType);
-                        return (
-                          <View key={evIdx} style={styles.weekEventCard}>
-                            {/* 3-Band Background Zoning */}
-                            <View style={styles.cardBackgroundContainer}>
-                              <View style={[styles.cardBand, { backgroundColor: upperColor }]} />
-                              <View style={[styles.cardBand, { backgroundColor: middleColor }]} />
-                              <View style={[styles.cardBand, { backgroundColor: lowerColor }]} />
-                            </View>
-                            {/* Inner Content Layer */}
-                            <View style={styles.weekEventContent}>
-                              <Text style={styles.weekEventTime}>{formatTime(ev.startTime)}</Text>
-                              <Text style={styles.weekEventTitle} numberOfLines={1}>{ev.title}</Text>
-                              <Text style={styles.weekEventMeta}>{ev.eventType}</Text>
-                            </View>
-                          </View>
-                        );
-                      })}
-                      {cellEvents.length === 0 && (
-                        <Text style={styles.emptyWeekText}>No events</Text>
-                      )}
-                    </ScrollView>
-                  </TouchableOpacity>
+                    <View style={{ flex: 1, flexDirection: 'column' }}>
+                      <TouchableOpacity 
+                        style={[styles.weekZoneItem, { 
+                          backgroundColor: routineCount > 0 ? '#ef4444' : 'transparent', 
+                          borderColor: routineCount > 0 ? '#991b1b' : '#ef4444', 
+                          borderWidth: 1,
+                          margin: 1,
+                          borderRadius: 4
+                        }]} 
+                        onPress={() => { setSelectedDate(cellDateStr); setSelectedCategory('ROUTINE'); }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.weekZoneLabel, { color: routineCount > 0 ? '#ffffff' : '#ef4444' }]}>Routine{routineCount > 0 ? `: ${routineCount}` : ': 0'}</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity 
+                        style={[styles.weekZoneItem, { 
+                          backgroundColor: surgeryCount > 0 ? '#10b981' : 'transparent', 
+                          borderColor: surgeryCount > 0 ? '#065f46' : '#10b981', 
+                          borderWidth: 1,
+                          margin: 1,
+                          borderRadius: 4
+                        }]} 
+                        onPress={() => { setSelectedDate(cellDateStr); setSelectedCategory('SURGERY'); }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.weekZoneLabel, { color: surgeryCount > 0 ? '#ffffff' : '#10b981' }]}>Surgery{surgeryCount > 0 ? `: ${surgeryCount}` : ': 0'}</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity 
+                        style={[styles.weekZoneItem, { 
+                          backgroundColor: specialCount > 0 ? '#f97316' : 'transparent', 
+                          borderColor: specialCount > 0 ? '#9a3412' : '#f97316', 
+                          borderWidth: 1,
+                          margin: 1,
+                          borderRadius: 4
+                        }]} 
+                        onPress={() => { setSelectedDate(cellDateStr); setSelectedCategory('SPECIAL'); }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.weekZoneLabel, { color: specialCount > 0 ? '#ffffff' : '#f97316' }]}>Special{specialCount > 0 ? `: ${specialCount}` : ': 0'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 );
               })}
             </View>
@@ -1397,7 +1500,9 @@ export function DashboardScreen({ navigation }) {
           
           {/* Date Event Panel */}
           <View style={styles.widgetCard}>
-            <Text style={styles.widgetTitle}>📅 Events on {formatDateString(selectedDate)}</Text>
+            <Text style={styles.widgetTitle}>
+              📅 {selectedCategory ? `${selectedCategory} ` : ''}Events on {formatDateString(selectedDate)}
+            </Text>
             
             {/* Widget Legend */}
             <View style={styles.widgetLegendBar}>
@@ -1416,24 +1521,22 @@ export function DashboardScreen({ navigation }) {
             </View>
 
             {selectedDateEvents.map((ev, idx) => {
-              const [upperColor, middleColor, lowerColor] = getEventBands(ev.eventType);
+              const eventStyle = getEventStyle(ev.eventType);
               return (
                 <TouchableOpacity 
                   key={idx} 
-                  style={styles.detailedEventRow}
+                  style={[styles.detailedEventRow, { backgroundColor: eventStyle.bg, borderLeftColor: eventStyle.border, borderLeftWidth: 3 }]}
                   onPress={() => navigation.navigate('CalendarEventDetail', { id: ev.id })}
                 >
-                  {/* 3-Band Background Zoning */}
-                  <View style={styles.cardBackgroundContainer}>
-                    <View style={[styles.cardBand, { backgroundColor: upperColor }]} />
-                    <View style={[styles.cardBand, { backgroundColor: middleColor }]} />
-                    <View style={[styles.cardBand, { backgroundColor: lowerColor }]} />
-                  </View>
-
                   {/* Inner Content Layer */}
                   <View style={styles.detailedEventRowContent}>
                     <View style={styles.eventRowHeader}>
-                      <Text style={styles.eventRowTime}>{formatTime(ev.startTime)} ({ev.durationMinutes || 0}m)</Text>
+                      {(() => {
+                        const start = new Date(ev.startTime);
+                        const end = new Date(start.getTime() + (ev.durationMinutes || 0) * 60000);
+                        const timeStr = `(${formatTime(start)}) to (${formatTime(end)})`;
+                        return <Text style={styles.eventRowTime}>{timeStr}</Text>;
+                      })()}
                       <View style={[
                         styles.dashboardCategoryTag,
                         ev.eventType === 'SURGERY' ? styles.tagSurgery :
@@ -1447,10 +1550,32 @@ export function DashboardScreen({ navigation }) {
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.eventRowTitle}>{ev.title}</Text>
-                    {ev.patient && <Text style={styles.eventRowPatient}>👤 Patient: {ev.patient.name}</Text>}
-                    {ev.doctor && <Text style={styles.eventRowDoctor}>🩺 Doctor: Dr. {ev.doctor.firstName} {ev.doctor.lastName}</Text>}
-                    {ev.location && <Text style={styles.eventRowMeta}>📍 {ev.location}</Text>}
+                    <Text style={styles.eventRowTitle}>
+                      {ev.eventType === 'SURGERY' 
+                        ? (ev.surgery?.surgeryName 
+                            ? `Surgery: ${ev.surgery.surgeryName}` 
+                            : (ev.title.includes(ev.patient?.name) ? `Surgery: Unspecified` : `Surgery: ${ev.title}`))
+                        : ev.title}
+                    </Text>
+                    {ev.patient && (
+                      <Text style={styles.eventRowPatient}>
+                        Patient Name : {ev.patient.name}
+                        {ev.patient.dateOfBirth ? ` : ${Math.abs(new Date(Date.now() - new Date(ev.patient.dateOfBirth).getTime()).getUTCFullYear() - 1970)}` : ''}
+                        {ev.patient.gender ? ` : ${ev.patient.gender}` : ''}
+                      </Text>
+                    )}
+                    {(() => {
+                      const isMyEvent = (ev.doctor && ev.doctor.firstName === firstName && ev.doctor.lastName === lastName);
+                      const hasAssistant = !!ev.assistantSurgeon;
+                      if (hasAssistant) {
+                        return <Text style={styles.eventRowDoctor}>Doctors: Dr. {ev.doctor?.firstName || ''} {ev.doctor?.lastName || ''}, Dr. {ev.assistantSurgeon.firstName} {ev.assistantSurgeon.lastName}</Text>;
+                      }
+                      if (ev.doctor && !isMyEvent) {
+                        return <Text style={styles.eventRowDoctor}>Doctor: Dr. {ev.doctor.firstName} {ev.doctor.lastName}</Text>;
+                      }
+                      return null;
+                    })()}
+                    {ev.location && <Text style={styles.eventRowMeta}>{ev.location}</Text>}
                   </View>
                 </TouchableOpacity>
               );
@@ -1460,51 +1585,6 @@ export function DashboardScreen({ navigation }) {
             )}
           </View>
 
-          {/* Today's Schedule */}
-          <View style={styles.widgetCard}>
-            <Text style={styles.widgetTitle}>🗓️ Today's Schedule</Text>
-            {todayEvents.slice(0, 4).map((ev, idx) => (
-              <View key={idx} style={styles.compactWidgetRow}>
-                <Text style={styles.compactTime}>{formatTime(ev.startTime)}</Text>
-                <Text style={styles.compactText} numberOfLines={1}>{ev.title}</Text>
-              </View>
-            ))}
-            {todayEvents.length === 0 && (
-              <Text style={styles.emptyWidgetText}>No events scheduled today.</Text>
-            )}
-          </View>
-
-          {/* Upcoming Surgeries */}
-          <View style={styles.widgetCard}>
-            <Text style={styles.widgetTitle}>🩺 Upcoming Surgeries</Text>
-            {upcomingSurgeries.map((ev, idx) => (
-              <View key={idx} style={styles.compactWidgetRow}>
-                <Text style={styles.compactTime}>{new Date(ev.startTime).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</Text>
-                <Text style={styles.compactText} numberOfLines={1}>{ev.title}</Text>
-              </View>
-            ))}
-            {upcomingSurgeries.length === 0 && (
-              <Text style={styles.emptyWidgetText}>No upcoming surgeries.</Text>
-            )}
-          </View>
-
-          {/* Recent Patients */}
-          <View style={styles.widgetCard}>
-            <Text style={styles.widgetTitle}>👥 Recent Patients</Text>
-            {recentPatients.map((p, idx) => (
-              <TouchableOpacity 
-                key={idx} 
-                style={styles.compactWidgetRow}
-                onPress={() => navigation.navigate('PatientDetail', { id: p.id })}
-              >
-                <Text style={styles.compactUhid}>{p.uhid}</Text>
-                <Text style={styles.compactText} numberOfLines={1}>{p.name}</Text>
-              </TouchableOpacity>
-            ))}
-            {recentPatients.length === 0 && (
-              <Text style={styles.emptyWidgetText}>No patient records found.</Text>
-            )}
-          </View>
 
           {/* Pending Tasks */}
           <View style={styles.widgetCard}>
@@ -1607,6 +1687,27 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     marginTop: 6,
   },
+  kpiCardSlim: {
+    width: '100%',
+    backgroundColor: theme.colors.surface,
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderLeftWidth: 4,
+    justifyContent: 'center',
+  },
+  kpiLabelSlim: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.textMuted,
+    letterSpacing: 0.2,
+  },
+  kpiValueInline: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: theme.colors.text,
+  },
   dashboardGrid: {
     flexDirection: 'row',
     gap: 16,
@@ -1617,8 +1718,8 @@ const styles = StyleSheet.create({
     minWidth: 320,
     backgroundColor: theme.colors.surface,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderWidth: 1.5,
+    borderColor: '#94a3b8', // slate-400 for more contrast
     padding: 16,
   },
   calendarControlsHeader: {
@@ -1799,10 +1900,23 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   weekDayNum: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '800',
     color: theme.colors.text,
     marginTop: 2,
+  },
+  weekZoneItem: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 2,
+  },
+  weekZoneLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   weekDayNumToday: {
     color: theme.colors.primary,
@@ -1910,7 +2024,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   detailedEventRowContent: {
-    padding: 10,
+    padding: 14,
     zIndex: 1,
     backgroundColor: 'transparent',
   },
@@ -1920,43 +2034,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   eventRowTime: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.text,
   },
   dashboardCategoryTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   tagSurgery: { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' },
   tagOpd: { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)' },
   tagOther: { backgroundColor: 'rgba(249, 115, 22, 0.15)', borderWidth: 1, borderColor: 'rgba(249, 115, 22, 0.3)' },
-  categoryTagTextSurgery: { fontSize: 9, fontWeight: '800', color: '#34d399' },
-  categoryTagTextOpd: { fontSize: 9, fontWeight: '800', color: '#f87171' },
-  categoryTagTextOther: { fontSize: 9, fontWeight: '800', color: '#fb923c' },
+  categoryTagTextSurgery: { fontSize: 10, fontWeight: '900', color: '#10b981' },
+  categoryTagTextOpd: { fontSize: 10, fontWeight: '900', color: '#ef4444' },
+  categoryTagTextOther: { fontSize: 10, fontWeight: '900', color: '#f97316' },
   eventRowTitle: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '800',
     color: theme.colors.text,
-    marginTop: 4,
+    marginTop: 8,
   },
   eventRowPatient: {
-    fontSize: 11,
+    fontSize: 14,
     color: theme.colors.text,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  eventRowDoctor: {
+    fontSize: 13,
+    color: theme.colors.textMuted,
     fontWeight: '600',
     marginTop: 4,
   },
-  eventRowDoctor: {
-    fontSize: 10,
+  eventRowMeta: {
+    fontSize: 13,
     color: theme.colors.textMuted,
     fontWeight: '600',
-    marginTop: 2,
-  },
-  eventRowMeta: {
-    fontSize: 10,
-    color: theme.colors.textMuted,
-    marginTop: 2,
+    marginTop: 4,
   },
   emptyWidgetText: {
     fontSize: 11.5,
