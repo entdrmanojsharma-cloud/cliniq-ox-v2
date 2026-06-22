@@ -8,7 +8,15 @@ import { theme } from '../../shared/styles/theme';
 export function EstimateDetailScreen({ route, navigation }) {
   const { id } = route.params;
   const { estimates, updateStatus } = useEstimatesStore();
-  const est = estimates.find(e => e.id === id);
+  const [est, setEst] = useState(() => estimates.find(e => e.id === id));
+
+  React.useEffect(() => {
+    const storeEst = estimates.find(e => e.id === id);
+    if (storeEst) {
+      setEst(storeEst);
+    }
+  }, [estimates, id]);
+
   const role = useAuthStore(state => state.role);
 
   const [remarksModalVisible, setRemarksModalVisible] = useState(false);
