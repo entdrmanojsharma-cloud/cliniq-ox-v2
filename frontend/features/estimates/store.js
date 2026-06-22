@@ -63,8 +63,10 @@ export const useEstimatesStore = create((set, get) => ({
     set({ loading: true });
     try {
       const res = await api.patch(`/estimates/${id}/status`, { status, remarks });
-      set({ loading: false });
-      get().fetchEstimates();
+      set(state => ({
+        estimates: state.estimates.map(e => e.id === id ? { ...e, ...res } : e),
+        loading: false
+      }));
       return res;
     } catch (err) {
       set({ loading: false });
