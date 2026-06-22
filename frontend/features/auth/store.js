@@ -3,13 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.location) {
-      return `http://${window.location.hostname}:3000/api/v1`;
-    }
-    return 'http://localhost:3000/api/v1';
-  }
-  return 'http://192.168.0.124:3000/api/v1';
+  // Use the EXPO_PUBLIC_API_URL environment variable set in your deployment configuration
+  return process.env.EXPO_PUBLIC_API_URL;
 };
 
 const BASE_URL = getBaseUrl();

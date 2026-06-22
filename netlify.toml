@@ -3,12 +3,12 @@
 
 [build]
   base    = "frontend"
-  command = "EXPO_PUBLIC_API_URL=https://cliniq-ox-api.onrender.com npx expo export --platform web"
+  command = "EXPO_PUBLIC_API_URL=https://cliniq-ox-api1.onrender.com/api/v1 npx expo export --platform web"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
-  EXPO_PUBLIC_API_URL = "https://cliniq-ox-api.onrender.com"
+  EXPO_PUBLIC_API_URL = "https://cliniq-ox-api1.onrender.com/api/v1"
 
 # Redirect all routes to index.html (needed for React Navigation routing)
 [[redirects]]
