@@ -9,12 +9,13 @@ import { theme } from '../../shared/styles/theme';
 /* ─────────────────────────────────────────────────────────────
    Helpers
 ───────────────────────────────────────────────────────────── */
-function getBaseUrl() {
-  if (typeof window !== 'undefined' && window.location) {
-    return `http://${window.location.hostname}:3000/api/v1`;
+const getBaseUrl = () => {
+  let url = process.env.EXPO_PUBLIC_API_URL;
+  if (url && !url.endsWith('/api/v1')) {
+    url = `${url}/api/v1`;
   }
-  return 'http://localhost:3000/api/v1';
-}
+  return url || 'http://localhost:3000/api/v1';
+};
 
 /* ─────────────────────────────────────────────────────────────
    Tab definitions

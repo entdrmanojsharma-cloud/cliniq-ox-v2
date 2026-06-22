@@ -211,10 +211,13 @@ export default function App() {
     function connect() {
       if (!isMounted) return;
       const getWsUrl = () => {
+        let apiUrl = process.env.EXPO_PUBLIC_API_URL;
+        if (apiUrl) {
+          let wsUrl = apiUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+          if (wsUrl.endsWith('/api/v1')) wsUrl = wsUrl.replace('/api/v1', '');
+          return wsUrl;
+        }
         if (Platform.OS === 'web') {
-          if (typeof window !== 'undefined' && window.location) {
-            return `ws://${window.location.hostname}:3000`;
-          }
           return 'ws://localhost:3000';
         }
         return 'ws://192.168.0.124:3000';

@@ -29,11 +29,11 @@ export function LoginScreen({ navigation }) {
   const [forgotSuccess, setForgotSuccess] = useState('');
 
   const getBaseUrl = () => {
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.location) return `http://${window.location.hostname}:3000/api/v1`;
-      return 'http://localhost:3000/api/v1';
+    let url = process.env.EXPO_PUBLIC_API_URL;
+    if (url && !url.endsWith('/api/v1')) {
+      url = `${url}/api/v1`;
     }
-    return 'http://192.168.0.124:3000/api/v1';
+    return url || 'http://localhost:3000/api/v1';
   };
 
   const handleVerifyUsername = async () => {

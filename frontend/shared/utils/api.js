@@ -22,9 +22,6 @@ const getBaseUrl = () => {
   }
   // Local development: auto-detect hostname so it works on any machine
   if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.location) {
-      return `http://${window.location.hostname}:3000/api/v1`;
-    }
     return 'http://localhost:3000/api/v1';
   }
   // Native mobile (Expo Go on phone, same WiFi)
