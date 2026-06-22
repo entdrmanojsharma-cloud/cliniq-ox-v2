@@ -1,6 +1,6 @@
 # Clinoqox1 - Step-by-Step Free Deployment Guide
 
-This guide details how to deploy the Cliniq-OX application for free using Supabase, Koyeb, and Netlify.
+This guide details how to deploy the Cliniq-OX application for free using Supabase, Render, and Netlify.
 
 ## Step 1: Set up the Database (Supabase)
 Supabase provides free, hosted PostgreSQL databases.
@@ -16,35 +16,31 @@ Supabase provides free, hosted PostgreSQL databases.
    `postgresql://postgres:[YOUR-PASSWORD]@db.xxxx.supabase.co:5432/postgres`
 9. Replace `[YOUR-PASSWORD]` with the password you created in step 3. This is your `DATABASE_URL`. Keep it handy for Step 2.
 
-## Step 2: Deploy the Backend (Koyeb)
-Koyeb will host your Node.js/Express API. It is fast, free, and does not put your app to sleep.
+## Step 2: Deploy the Backend (Render)
+Render will host your Node.js/Express API.
 
-1. Go to [koyeb.com](https://app.koyeb.com) and sign up using your GitHub account.
-2. From the dashboard, click **Create Web Service**.
-3. Select **GitHub** as the deployment method.
-4. Search for and select your `cliniq-OX` repository.
-5. In the configuration settings:
-   *   **Builder**: Choose **Buildpack** (it will auto-detect Node.js).
-   *   **Run command**: Leave blank (it will automatically run `node index.js`).
-   *   **Work directory**: Type exactly `backend`.
-6. Scroll down to **Environment variables** and add these three:
+1. Go to [render.com](https://render.com) and sign in using your GitHub account.
+2. From the Render Dashboard, click **New +** and select **Web Service**.
+3. Under "Connect a repository", find and select your `cliniq-ox-v2` repository.
+4. Render will automatically detect your `render.yaml` file and fill in most settings.
+5. Ensure the **Instance Type** is set to **Free**.
+6. Scroll down to **Advanced** and click **Add Environment Variable**. You need to add three variables:
    *   **Key**: `DATABASE_URL` | **Value**: (Paste the connection string from Step 1)
-   *   **Key**: `JWT_SECRET` | **Value**: (Create a random string of characters and numbers)
-   *   **Key**: `X_HOSPITAL_ID` | **Value**: (Enter your default hospital ID if required)
-7. Scroll down to **Instance**, and select the **Free** tier (Eco).
-8. Name your service (e.g., `cliniq-ox-api`) and click **Deploy**.
-9. Koyeb will now build and deploy your backend. Once it is healthy, copy the Public URL provided (it will look like `https://your-app-name.koyeb.app`).
-10. **Important:** Keep this URL handy for Step 3.
+   *   **Key**: `JWT_SECRET` | **Value**: (Create a random, long string of characters and numbers)
+   *   **Key**: `X_HOSPITAL_ID` | **Value**: (Enter your default hospital ID if your backend requires it immediately on boot)
+7. Click **Create Web Service** at the bottom.
+8. Render will now build and deploy your backend. Watch the logs. Once it says "Your service is live 🎉", copy the URL provided at the top left (it will look like `https://cliniq-ox-api.onrender.com`).
+9. **Important:** Keep this URL handy for Step 3.
 
 ## Step 3: Connect Frontend to Backend
 Before deploying the frontend, we must tell it where the backend lives.
 
-1. Open your `cliniq-OX` codebase locally.
+1. Open your codebase locally.
 2. Open the file `netlify.toml` in the root directory.
-3. Find lines 6 and 11, and replace the old API URL with the **new Koyeb URL** you copied in Step 2.
+3. Find lines 6 and 11, and replace the API URL with the **new Render URL** you copied in Step 2.
    ```toml
    # Example:
-   EXPO_PUBLIC_API_URL = "https://your-koyeb-url.koyeb.app/api/v1"
+   EXPO_PUBLIC_API_URL = "https://your-new-render-url.onrender.com"
    ```
 4. Commit this change to Git and push it up to your GitHub repository.
 
@@ -62,4 +58,5 @@ Netlify will host the React Native web build.
 
 ---
 **Troubleshooting Notes:**
-*   **CORS Errors:** If you get "Failed to fetch" or CORS errors, verify that your backend URL in `netlify.toml` matches your Koyeb URL exactly.
+*   **Backend Sleeps:** The free tier of Render spins down the backend after 15 minutes of inactivity. When you open the app after a while, the first API request might take 30-50 seconds to complete while Render wakes up the server.
+*   **CORS Errors:** If you get "Failed to fetch" or CORS errors, verify that your backend URL in `netlify.toml` matches your Render URL exactly.
