@@ -278,7 +278,7 @@ export function PatientsListScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <Text style={theme.typography.title}>Patient Directory</Text>
         <TouchableOpacity 
           style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 8 }}
@@ -296,7 +296,7 @@ export function PatientsListScreen({ route, navigation }) {
       />
 
       <Text style={styles.label}>Filter By Date</Text>
-      <View style={{ flexDirection: 'row', gap: 12, marginVertical: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <View style={{ flexDirection: 'row', gap: 12, marginVertical: 2, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <View style={{ flex: 1, minWidth: 260 }}>
           <Text style={{ fontSize: 12, fontWeight: '700', color: '#334155', marginBottom: 2 }}>From Date</Text>
           <DobDropdownPicker value={dateStart} onChange={setDateStart} />
@@ -816,7 +816,7 @@ export function PatientFormScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing.md },
-  searchInput: { backgroundColor: theme.colors.surface, color: theme.colors.text, padding: 12, borderRadius: 8, marginVertical: theme.spacing.sm, borderWidth: 1, borderColor: theme.colors.border, fontSize: 14, minHeight: 44 },
+  searchInput: { backgroundColor: theme.colors.surface, color: theme.colors.text, padding: 8, borderRadius: 8, marginVertical: 4, borderWidth: 1, borderColor: theme.colors.border, fontSize: 14, minHeight: 36 },
   loader: { marginVertical: theme.spacing.xl },
   
   patientTableRow: {
@@ -906,7 +906,7 @@ const styles = StyleSheet.create({
   form: { marginVertical: theme.spacing.sm },
   formRow: { flexDirection: 'row', gap: 10, width: '100%' },
   formCol: { flex: 1 },
-  label: { color: theme.colors.text, marginVertical: theme.spacing.xs, fontWeight: '600', fontSize: 13 },
+  label: { color: theme.colors.text, marginVertical: 2, fontWeight: '600', fontSize: 13 },
   input: { backgroundColor: theme.colors.surface, color: theme.colors.text, padding: theme.spacing.md, borderRadius: 8, borderColor: theme.colors.border, borderWidth: 1, marginVertical: theme.spacing.xs, minHeight: 44, fontSize: 14 },
   toggleRow: { flexDirection: 'row', gap: theme.spacing.sm, marginVertical: theme.spacing.xs },
   toggleButton: { flex: 1, backgroundColor: theme.colors.surface, padding: theme.spacing.sm, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border, minHeight: 44, justifyContent: 'center' },
@@ -955,8 +955,8 @@ const styles = StyleSheet.create({
   eventActionBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
   createEventBtn: { backgroundColor: theme.colors.primaryLight, padding: theme.spacing.md, borderRadius: 8, alignItems: 'center', marginVertical: theme.spacing.sm, minHeight: 44, justifyContent: 'center' },
   createEventBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
-  schemeFilterRow: { flexDirection: 'row', gap: 6, marginVertical: theme.spacing.xs },
-  schemeFilterButton: { flex: 1, backgroundColor: theme.colors.surface, paddingVertical: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border, minHeight: 44, justifyContent: 'center' },
+  schemeFilterRow: { flexDirection: 'row', gap: 6, marginVertical: 2 },
+  schemeFilterButton: { flex: 1, backgroundColor: theme.colors.surface, paddingVertical: 6, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border, minHeight: 32, justifyContent: 'center' },
   schemeFilterButtonActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
   schemeFilterText: { color: theme.colors.text, fontWeight: '600', fontSize: 12 },
   schemeFilterTextActive: { color: '#ffffff', fontWeight: '700' }
