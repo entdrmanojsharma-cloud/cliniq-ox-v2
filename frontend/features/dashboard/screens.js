@@ -1303,13 +1303,23 @@ export function DashboardScreen({ navigation }) {
           <Text style={styles.kpiValue}>{metrics.pendingEstimatesCount}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.kpiCardSlim, { borderLeftColor: '#3b82f6' }]}
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('PatientsList')}
-        >
-          <Text style={styles.kpiLabelSlim} numberOfLines={1}>👥 Total Patients - <Text style={styles.kpiValueInline}>{metrics.totalPatients || 0}</Text></Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', width: '100%', gap: 12 }}>
+          <TouchableOpacity
+            style={[styles.kpiCardSlim, { flex: 1, width: 'auto', borderLeftColor: '#3b82f6' }]}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('PatientsList')}
+          >
+            <Text style={styles.kpiLabelSlim} numberOfLines={1}>👥 Total Patients - <Text style={styles.kpiValueInline}>{metrics.totalPatients || 0}</Text></Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.kpiCardSlim, { flex: 1, width: 'auto', borderLeftColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('PatientForm', { id: null })}
+          >
+            <Text style={[styles.kpiLabelSlim, { color: '#ef4444', textAlign: 'center' }]} numberOfLines={1}>➕ ADD PATIENT</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Grid View */}
