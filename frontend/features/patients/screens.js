@@ -196,7 +196,7 @@ const SkeletonList = () => (
 export function PatientsListScreen({ route, navigation }) {
   const { patients, fetchPatients, loading, page, limit, total, search, pmjay, setFilters } = usePatientsStore();
   const [dateStart, setDateStart] = useState('');
-  const [dateEnd, setDateEnd] = useState(new Date().toISOString().split('T')[0]);
+  const [dateEnd, setDateEnd] = useState('');
   const [matchingPatientIds, setMatchingPatientIds] = useState(null);
   const [loadingEvents, setLoadingEvents] = useState(false);
 
