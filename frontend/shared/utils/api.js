@@ -14,7 +14,11 @@ import { useLoadingStore } from './loadingStore';
 const getBaseUrl = () => {
   // Production: use environment variable set in Netlify / Render
   if (process.env.EXPO_PUBLIC_API_URL) {
-    return `${process.env.EXPO_PUBLIC_API_URL}/api/v1`;
+    const url = process.env.EXPO_PUBLIC_API_URL;
+    if (url.endsWith('/api/v1')) {
+      return url;
+    }
+    return `${url}/api/v1`;
   }
   // Local development: auto-detect hostname so it works on any machine
   if (Platform.OS === 'web') {

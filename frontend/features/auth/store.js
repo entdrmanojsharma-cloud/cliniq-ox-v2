@@ -3,8 +3,11 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
-  // Use the EXPO_PUBLIC_API_URL environment variable set in your deployment configuration
-  return process.env.EXPO_PUBLIC_API_URL;
+  let url = process.env.EXPO_PUBLIC_API_URL;
+  if (url && !url.endsWith('/api/v1')) {
+    url = `${url}/api/v1`;
+  }
+  return url;
 };
 
 const BASE_URL = getBaseUrl();
