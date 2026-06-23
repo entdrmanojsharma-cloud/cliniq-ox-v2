@@ -4,6 +4,7 @@ import { useEstimatesStore } from './store';
 import { useInvoicesStore } from '../invoices/store';
 import { useAuthStore } from '../auth/store';
 import { theme } from '../../shared/styles/theme';
+import { api } from '../../shared/utils/api';
 
 export function EstimateDetailScreen({ route, navigation }) {
   const { id } = route.params;
@@ -18,8 +19,7 @@ export function EstimateDetailScreen({ route, navigation }) {
       setEst(storeEst);
     } else {
       setLoading(true);
-      const { api } = require('../../shared/utils/api');
-      (api || require('../../shared/utils/api').default).get(`/estimates/${id}`)
+      api.get(`/estimates/${id}`)
         .then(data => {
           if (isMounted && data) setEst(data);
         })
