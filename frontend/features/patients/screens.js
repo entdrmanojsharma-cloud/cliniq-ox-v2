@@ -57,13 +57,6 @@ function SearchableDropdown({ label, items, selectedValue, onSelect, placeholder
               autoFocus
             />
             <ScrollView style={dropdownStyles.optionsList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-              {/* None / Clear option */}
-              <TouchableOpacity
-                style={[dropdownStyles.option, !selectedValue && dropdownStyles.optionActive]}
-                onPress={() => { onSelect(null); setShowDropdown(false); setSearchText(''); }}
-              >
-                <Text style={[dropdownStyles.optionText, { fontStyle: 'italic', color: theme.colors.textMuted }]}>— None —</Text>
-              </TouchableOpacity>
               {filtered.map(item => (
                 <TouchableOpacity
                   key={item.value}
