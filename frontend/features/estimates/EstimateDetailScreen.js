@@ -38,18 +38,9 @@ export function EstimateDetailScreen({ route, navigation }) {
   const handlePrintPDF = async () => {
     try {
       const { token, hospitalId } = useAuthStore.getState();
-      const getDynamicBaseUrl = () => {
-        if (Platform.OS === 'web') {
-          if (typeof window !== 'undefined' && window.location) {
-            return `http://${window.location.hostname}:3000/api/v1`;
-          }
-          return 'http://localhost:3000/api/v1';
-        }
-        return 'http://192.168.0.124:3000/api/v1';
-      };
-      const baseUrl = getDynamicBaseUrl();
+      const { BASE_URL } = require('../../shared/utils/api');
       
-      const response = await fetch(`${baseUrl}/documents`, {
+      const response = await fetch(`${BASE_URL}/documents`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,7 +58,13 @@ export function EstimateDetailScreen({ route, navigation }) {
       if (Platform.OS === 'web') {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Estimate-${est.estimateNumber || 'Document'}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
       } else {
         Alert.alert('Success', 'PDF generated successfully on server.');
       }

@@ -28,7 +28,7 @@ const getBaseUrl = () => {
   return 'http://192.168.0.124:3000/api/v1';
 };
 
-const BASE_URL = getBaseUrl();
+export const BASE_URL = getBaseUrl();
 
 // ── DB Resilience helpers ─────────────────────────────────────────────────────
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));

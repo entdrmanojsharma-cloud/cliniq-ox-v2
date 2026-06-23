@@ -32,7 +32,7 @@ function renderPatientSection(data) {
       </tr>
       <tr>
         <td class="metadata-label">Doctor / Surgeon:</td>
-        <td>Dr. ${doctor.firstName || ''} ${doctor.lastName || ''}</td>
+        <td>${[doctor.firstName, doctor.lastName].join(' ').trim().replace(/^(?:Dr\.?\s*)+/i, 'Dr. ')}</td>
         <td class="metadata-label">Specialty:</td>
         <td>${doctor.specialty || 'N/A'}</td>
       </tr>
