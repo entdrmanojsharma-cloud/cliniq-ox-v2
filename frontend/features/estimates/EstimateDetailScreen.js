@@ -73,7 +73,8 @@ export function EstimateDetailScreen({ route, navigation }) {
       }
 
       if (Platform.OS === 'web') {
-        const blob = await response.blob();
+        const arrayBuffer = await response.arrayBuffer();
+        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -81,7 +82,7 @@ export function EstimateDetailScreen({ route, navigation }) {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       } else {
         Alert.alert('Success', 'PDF generated successfully on server.');
       }
