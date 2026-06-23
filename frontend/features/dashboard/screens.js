@@ -1436,6 +1436,17 @@ export function DashboardScreen({ navigation }) {
                 const surgeryCount = cellEvents.filter(e => e.eventType === 'SURGERY').length;
                 const specialCount = cellEvents.filter(e => e.eventType !== 'OPD' && e.eventType !== 'IPD' && e.eventType !== 'SURGERY').length;
 
+                // Smart label: show actual event type if only one type, else "Routine"
+                const opdOnly = cellEvents.filter(e => e.eventType === 'OPD').length;
+                const ipdOnly = cellEvents.filter(e => e.eventType === 'IPD').length;
+                const routineLabel = routineCount === 0
+                  ? 'Routine'
+                  : opdOnly > 0 && ipdOnly === 0
+                    ? 'OPD'
+                    : ipdOnly > 0 && opdOnly === 0
+                      ? 'IPD'
+                      : 'Routine';
+
                 return (
                   <View
                     key={idx} 
@@ -1467,7 +1478,7 @@ export function DashboardScreen({ navigation }) {
                         onPress={() => { setSelectedDate(cellDateStr); setSelectedCategory('ROUTINE'); }}
                         activeOpacity={0.7}
                       >
-                        <Text style={[styles.weekZoneLabel, { color: routineCount > 0 ? '#ffffff' : '#ef4444' }]}>Routine{routineCount > 0 ? `: ${routineCount}` : ': 0'}</Text>
+                        <Text style={[styles.weekZoneLabel, { color: routineCount > 0 ? '#ffffff' : '#ef4444' }]}>{routineLabel}{routineCount > 0 ? `: ${routineCount}` : ': 0'}</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity 
