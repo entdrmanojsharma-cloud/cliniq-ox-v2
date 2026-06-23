@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Platform, Modal, Pressable, TextInput } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Platform, Modal, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { useEstimatesStore } from './store';
 import { useInvoicesStore } from '../invoices/store';
 import { useAuthStore } from '../auth/store';
@@ -9,12 +9,28 @@ export function EstimateDetailScreen({ route, navigation }) {
   const { id } = route.params;
   const { estimates, updateStatus } = useEstimatesStore();
   const [est, setEst] = useState(() => estimates.find(e => e.id === id));
+  const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
+    let isMounted = true;
     const storeEst = estimates.find(e => e.id === id);
     if (storeEst) {
       setEst(storeEst);
+    } else {
+      setLoading(true);
+      const { api } = require('../../shared/utils/api');
+      (api || require('../../shared/utils/api').default).get(`/estimates/${id}`)
+        .then(data => {
+          if (isMounted && data) setEst(data);
+        })
+        .catch(err => {
+          if (isMounted) Alert.alert('Error', 'Failed to load estimate');
+        })
+        .finally(() => {
+          if (isMounted) setLoading(false);
+        });
     }
+    return () => { isMounted = false; };
   }, [estimates, id]);
 
   const role = useAuthStore(state => state.role);
@@ -24,6 +40,7 @@ export function EstimateDetailScreen({ route, navigation }) {
   const [pendingStatus, setPendingStatus] = useState('');
   const [remarks, setRemarks] = useState('');
 
+  if (loading) return <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
   if (!est) return null;
 
   const handleStatusChange = async (newStatus, statusRemarks) => {
