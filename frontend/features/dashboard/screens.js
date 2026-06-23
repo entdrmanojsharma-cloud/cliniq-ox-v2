@@ -1432,8 +1432,7 @@ export function DashboardScreen({ navigation }) {
                 
                 const cellEvents = weekEvents.filter(e => e.startTime.split('T')[0] === cellDateStr);
                 
-                const opdCount = cellEvents.filter(e => e.eventType === 'OPD').length;
-                const ipdCount = cellEvents.filter(e => e.eventType === 'IPD').length;
+                const routineCount = cellEvents.filter(e => e.eventType === 'OPD' || e.eventType === 'IPD').length;
                 const surgeryCount = cellEvents.filter(e => e.eventType === 'SURGERY').length;
                 const specialCount = cellEvents.filter(e => e.eventType !== 'OPD' && e.eventType !== 'IPD' && e.eventType !== 'SURGERY').length;
 
@@ -1457,11 +1456,10 @@ export function DashboardScreen({ navigation }) {
                     </TouchableOpacity>
 
                     <View style={{ flex: 1, flexDirection: 'column' }}>
-                      {/* OPD Row */}
                       <TouchableOpacity 
                         style={[styles.weekZoneItem, { 
-                          backgroundColor: opdCount > 0 ? '#ef4444' : 'transparent', 
-                          borderColor: opdCount > 0 ? '#991b1b' : '#ef4444', 
+                          backgroundColor: routineCount > 0 ? '#ef4444' : 'transparent', 
+                          borderColor: routineCount > 0 ? '#991b1b' : '#ef4444', 
                           borderWidth: 1,
                           margin: 1,
                           borderRadius: 4
@@ -1469,25 +1467,9 @@ export function DashboardScreen({ navigation }) {
                         onPress={() => { setSelectedDate(cellDateStr); setSelectedCategory('ROUTINE'); }}
                         activeOpacity={0.7}
                       >
-                        <Text style={[styles.weekZoneLabel, { color: opdCount > 0 ? '#ffffff' : '#ef4444' }]}>OPD{opdCount > 0 ? `: ${opdCount}` : ': 0'}</Text>
+                        <Text style={[styles.weekZoneLabel, { color: routineCount > 0 ? '#ffffff' : '#ef4444' }]}>Routine{routineCount > 0 ? `: ${routineCount}` : ': 0'}</Text>
                       </TouchableOpacity>
 
-                      {/* IPD Row */}
-                      <TouchableOpacity 
-                        style={[styles.weekZoneItem, { 
-                          backgroundColor: ipdCount > 0 ? '#8b5cf6' : 'transparent', 
-                          borderColor: ipdCount > 0 ? '#5b21b6' : '#8b5cf6', 
-                          borderWidth: 1,
-                          margin: 1,
-                          borderRadius: 4
-                        }]} 
-                        onPress={() => { setSelectedDate(cellDateStr); setSelectedCategory('ROUTINE'); }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.weekZoneLabel, { color: ipdCount > 0 ? '#ffffff' : '#8b5cf6' }]}>IPD{ipdCount > 0 ? `: ${ipdCount}` : ': 0'}</Text>
-                      </TouchableOpacity>
-
-                      {/* Surgery Row */}
                       <TouchableOpacity 
                         style={[styles.weekZoneItem, { 
                           backgroundColor: surgeryCount > 0 ? '#10b981' : 'transparent', 
@@ -1502,7 +1484,6 @@ export function DashboardScreen({ navigation }) {
                         <Text style={[styles.weekZoneLabel, { color: surgeryCount > 0 ? '#ffffff' : '#10b981' }]}>Surgery{surgeryCount > 0 ? `: ${surgeryCount}` : ': 0'}</Text>
                       </TouchableOpacity>
 
-                      {/* Special Row */}
                       <TouchableOpacity 
                         style={[styles.weekZoneItem, { 
                           backgroundColor: specialCount > 0 ? '#f97316' : 'transparent', 
