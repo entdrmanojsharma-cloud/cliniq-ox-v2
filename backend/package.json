@@ -8,13 +8,14 @@
     "dev": "node --env-file=../.env index.js"
   },
   "dependencies": {
-    "xlsx": "^0.18.5",
-    "express": "^5.2.1",
-    "ws": "^8.21.0",
-    "bcryptjs": "^3.0.3",
-    "jsonwebtoken": "^9.0.3",
-    "zod": "^4.4.3",
     "@prisma/client": "^6.19.3",
-    "prisma": "^6.19.3"
+    "bcryptjs": "^3.0.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "prisma": "^6.19.3",
+    "puppeteer": "^22.15.0",
+    "ws": "^8.21.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
   }
 }
