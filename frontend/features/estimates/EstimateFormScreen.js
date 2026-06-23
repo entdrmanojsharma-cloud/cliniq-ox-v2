@@ -505,7 +505,7 @@ export function EstimateFormScreen({ route, navigation }) {
   const [defaultAsstSurgeonRate, setDefaultAsstSurgeonRate] = useState('0');
 
   // ── Fixed Package States ──
-  const [isPackage, setIsPackage] = useState(existing.isPackage || false);
+  const [isPackage, setIsPackage] = useState(existing.id ? !!existing.isPackage : true);
   const [packageName, setPackageName] = useState(existing.packageName || '');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [packagePrice, setPackagePrice] = useState(existing.packagePrice ? String(existing.packagePrice) : '');
@@ -515,7 +515,7 @@ export function EstimateFormScreen({ route, navigation }) {
   const { billingDefaults, fetchBillingDefaults, profile, fetchProfile } = useSettingsStore();
   // Step 5A: Package-specific anaesthesia type + stay days
   const [packageAnaesthesiaType, setPackageAnaesthesiaType] = useState('GA');
-  const [pkgStayOption, setPkgStayOption] = useState(3);
+  const [pkgStayOption, setPkgStayOption] = useState(1);
   const [pkgStayCustom, setPkgStayCustom] = useState('');
   const [generatingInclusion, setGeneratingInclusion] = useState(false);
 
@@ -1186,22 +1186,14 @@ export function EstimateFormScreen({ route, navigation }) {
       const saved = id ? await updateEstimate(id, payload) : await createEstimate(payload);
       const estimateId = saved?.id || id;
 
-      if (isPackage && saveAsTemplate && packageName.trim()) {
+      if (isPackage && saveAsTemplate && (packageName || '').trim()) {
         try {
           await api.post('/estimate-templates', {
-            templateName: packageName.trim(),
+            templateName: (packageName || '').trim(),
             templateType: 'FIXED_PACKAGE',
-            packagePrice: Number(packagePrice) || 0,
-            packageNotes: packageIncludes || '',
-            templateItems: surgeries.map(s => ({
-              referenceId: s.surgeryId,
-              itemCategory: 'SURGERY',
-              itemName: s.surgeryName,
-              quantity: 1,
-              defaultRate: 0,
-              discountValue: 0,
-              discountType: 'PERCENTAGE'
-            }))
+            packagePrice: 0,
+            packageNotes: '',
+            templateItems: []
           });
         } catch (err) {
           console.warn('Failed to save template', err);
@@ -1389,19 +1381,28 @@ export function EstimateFormScreen({ route, navigation }) {
 
         {/* ── Linked Surgery Event Banner (compact) ── */}
         {selectedEventId && eventInfo && (
-          <View style={styles.eventBanner}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <Text style={styles.eventBannerTitle}>📅 Linked Event</Text>
+          <View style={[styles.eventBanner, { backgroundColor: '#eef2ff', borderColor: '#c7d2fe', borderWidth: 1 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={[styles.eventBannerTitle, { color: theme.colors.primary }]}>Linked Event</Text>
               {!routeEventId && (
-                <TouchableOpacity onPress={() => { setSelectedEventId(''); setEventInfo(null); }} style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: 'rgba(0,0,0,0.06)' }}>
-                  <Text style={{ fontSize: 10, color: theme.colors.primary, fontWeight: '700' }}>Change</Text>
+                <TouchableOpacity onPress={() => { setSelectedEventId(''); setEventInfo(null); }} style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: theme.colors.primary }}>
+                  <Text style={{ fontSize: 11, color: '#fff', fontWeight: '700' }}>Change</Text>
                 </TouchableOpacity>
               )}
             </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-              <Text style={{ fontSize: 12, color: theme.colors.text }}>👤 {eventInfo.patientName} ({eventInfo.patientUhid})</Text>
-              {eventInfo.doctorName && <Text style={{ fontSize: 12, color: theme.colors.text }}>🩺 {eventInfo.doctorName}</Text>}
-              <Text style={{ fontSize: 12, color: theme.colors.text }}>⏰ {fmtDate(eventInfo.startTime)}</Text>
+            <View style={{ flexDirection: 'column', gap: 6 }}>
+              <Text style={{ fontSize: 14, color: theme.colors.text, fontWeight: '600' }}>{eventInfo.patientName}</Text>
+              {eventInfo.doctorName && <Text style={{ fontSize: 13, color: theme.colors.text }}>{eventInfo.doctorName.replace(/^(Dr\.\s*)+/i, 'Dr. ')}</Text>}
+              <Text style={{ fontSize: 15, color: theme.colors.text, fontWeight: '700' }}>
+                {(() => {
+                  if (!eventInfo.startTime) return '—';
+                  const d = new Date(eventInfo.startTime);
+                  const day = d.toLocaleDateString('en-IN', { weekday: 'short' });
+                  const date = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                  const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                  return `${day} : ${date} : ${time}`;
+                })()}
+              </Text>
             </View>
           </View>
         )}
@@ -1501,9 +1502,9 @@ export function EstimateFormScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* ── Diagnosis (Optional) ── */}
-        <View style={styles.section}>
-          <FormLabel text="Diagnosis (Optional)" />
+        {/* ── Diagnosis ── */}
+        <View style={[styles.section, { zIndex: 1000 }]}>
+          <FormLabel text="Diagnosis" />
           
           {/* Selected Diagnosis Chips */}
           {selectedDiagnoses.length > 0 && (
@@ -1532,7 +1533,7 @@ export function EstimateFormScreen({ route, navigation }) {
                 }
               }
             }}
-            placeholder="Search & add diagnosis ▼"
+            placeholder="Search & add diagnosis"
             keyExtractor={d => d.id || d.diagnosisName}
             renderItem={d => `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
             renderSelected={d => `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
@@ -1566,93 +1567,84 @@ export function EstimateFormScreen({ route, navigation }) {
         </View>
 
         {/* ── Template & Package Section ── */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0', borderWidth: 1, zIndex: 9999, elevation: 9999 }]}>
           <SectionHeader icon="📄" title="Template & Package Selection" />
+
+          {/* Package Type Toggle */}
+          <View style={{ flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 8, padding: 4, marginBottom: 16 }}>
+            <TouchableOpacity 
+              style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: isPackage ? '#fff' : 'transparent', borderRadius: 6, shadowColor: isPackage ? '#000' : 'transparent', shadowOpacity: 0.1, shadowRadius: 2, elevation: isPackage ? 2 : 0 }}
+              onPress={() => setIsPackage(true)}
+            >
+              <Text style={{ fontWeight: isPackage ? '700' : '500', color: isPackage ? theme.colors.primary : theme.colors.textMuted }}>📦 Fixed Package</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={{ flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: !isPackage ? '#fff' : 'transparent', borderRadius: 6, shadowColor: !isPackage ? '#000' : 'transparent', shadowOpacity: 0.1, shadowRadius: 2, elevation: !isPackage ? 2 : 0 }}
+              onPress={() => setIsPackage(false)}
+            >
+              <Text style={{ fontWeight: !isPackage ? '700' : '500', color: !isPackage ? theme.colors.primary : theme.colors.textMuted }}>📋 Detailed Estimate</Text>
+            </TouchableOpacity>
+          </View>
           
-          <FormLabel text="Select Estimate Template" />
-          <SearchableDropdown
-            items={allTemplates}
-            value={packageTemplateId ? (allTemplates.find(t => t.id === packageTemplateId) || null) : null}
-            onSelect={(temp) => {
-              if (temp) {
-                handleTemplateSelect(temp);
-              } else {
-                setPackageTemplateId('');
-                setIsPackage(false);
-                setPackagePrice('');
-                setPackageName('');
-                setPackageIncludes('');
-                setSurgeries([]);
+          {/* Template selection moved to Package Name row */}
+          <View style={{ zIndex: 3000, elevation: 3 }}>
+            <FormLabel text="Name Doctor/Surgeon *" />
+            <SearchableDropdown
+              items={allDoctors}
+              value={primaryDoctorObj || (primaryDoctor ? { _manualEntry: true, displayName: primaryDoctor } : null)}
+              onSelect={(d) => {
+                if (!d) {
+                  setPrimaryDoctorObj(null);
+                  setPrimaryDoctor('');
+                } else if (d._manualEntry) {
+                  setPrimaryDoctorObj(null);
+                  setPrimaryDoctor(d.displayName);
+                } else {
+                  const name = `Dr. ${d.firstName} ${d.lastName}`;
+                  setPrimaryDoctorObj(d);
+                  setPrimaryDoctor(name);
+                }
+              }}
+              placeholder="Search & select doctor from master ▼"
+              keyExtractor={d => d.id || d.displayName}
+              renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+              renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty})`}
+              filterFn={(d, q) => d._manualEntry
+                ? d.displayName.toLowerCase().includes(q.toLowerCase())
+                : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())
               }
-            }}
-            placeholder="Browse templates ▼"
-            keyExtractor={t => t.id}
-            renderItem={t => `${t.templateName} (${t.templateType || 'DETAILED'})`}
-            renderSelected={t => `📄 ${t.templateName} (${t.templateType || 'DETAILED'})`}
-            filterFn={(t, q) => (t.templateName || '').toLowerCase().includes(q.toLowerCase())}
-          />
+              manualEntryLabel="Not in list? Type doctor name manually"
+            />
+          </View>
 
-          <FormLabel text="Name Doctor/Surgeon *" />
-          <SearchableDropdown
-            items={allDoctors}
-            value={primaryDoctorObj || (primaryDoctor ? { _manualEntry: true, displayName: primaryDoctor } : null)}
-            onSelect={(d) => {
-              if (!d) {
-                setPrimaryDoctorObj(null);
-                setPrimaryDoctor('');
-              } else if (d._manualEntry) {
-                setPrimaryDoctorObj(null);
-                setPrimaryDoctor(d.displayName);
-              } else {
-                const name = `Dr. ${d.firstName} ${d.lastName}`;
-                setPrimaryDoctorObj(d);
-                setPrimaryDoctor(name);
+          <View style={{ zIndex: 2000, elevation: 2 }}>
+            <FormLabel text="Name Assistant Surgeon (Optional)" />
+            <SearchableDropdown
+              items={allDoctors}
+              value={assistantSurgeonObj || (assistantSurgeonName ? { _manualEntry: true, displayName: assistantSurgeonName } : null)}
+              onSelect={(d) => {
+                if (!d) {
+                  setAssistantSurgeonObj(null);
+                  setAssistantSurgeonName('');
+                } else if (d._manualEntry) {
+                  setAssistantSurgeonObj(null);
+                  setAssistantSurgeonName(d.displayName);
+                } else {
+                  const name = `Dr. ${d.firstName} ${d.lastName}`;
+                  setAssistantSurgeonObj(d);
+                  setAssistantSurgeonName(name);
+                }
+              }}
+              placeholder="Search & select assistant surgeon ▼"
+              keyExtractor={d => d.id || d.displayName}
+              renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
+              renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty})`}
+              filterFn={(d, q) => d._manualEntry
+                ? d.displayName.toLowerCase().includes(q.toLowerCase())
+                : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())
               }
-            }}
-            placeholder="Search & select doctor from master ▼"
-            keyExtractor={d => d.id || d.displayName}
-            renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-            renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty})`}
-            filterFn={(d, q) => d._manualEntry
-              ? d.displayName.toLowerCase().includes(q.toLowerCase())
-              : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())
-            }
-            manualEntryLabel="Not in list? Type doctor name manually"
-          />
-
-          <FormLabel text="Name Assistant Surgeon (Optional)" />
-          <SearchableDropdown
-            items={allDoctors}
-            value={assistantSurgeonObj || (assistantSurgeonName ? { _manualEntry: true, displayName: assistantSurgeonName } : null)}
-            onSelect={(d) => {
-              if (!d) {
-                setAssistantSurgeonObj(null);
-                setAssistantSurgeonName('');
-              } else if (d._manualEntry) {
-                setAssistantSurgeonObj(null);
-                setAssistantSurgeonName(d.displayName);
-              } else {
-                const name = `Dr. ${d.firstName} ${d.lastName}`;
-                setAssistantSurgeonObj(d);
-                setAssistantSurgeonName(name);
-              }
-            }}
-            placeholder="Search & select assistant surgeon ▼"
-            keyExtractor={d => d.id || d.displayName}
-            renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-            renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty})`}
-            filterFn={(d, q) => d._manualEntry
-              ? d.displayName.toLowerCase().includes(q.toLowerCase())
-              : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())
-            }
-            manualEntryLabel="Not in list? Type assistant name manually"
-          />
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14 }}>
-            <TableCheckbox checked={isPackage} onChange={setIsPackage} />
-            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.colors.text, marginLeft: 10 }}>
-              Fixed Template (Y/N)
-            </Text>
+              manualEntryLabel="Not in list? Type assistant name manually"
+            />
           </View>
         </View>
 
@@ -1660,14 +1652,14 @@ export function EstimateFormScreen({ route, navigation }) {
         {isPackage ? (
           /* ── Fixed Template (isPackage = Y) ── */
           <View style={tableStyles.table}>
-            <View style={tableStyles.tableHeader}>
-              <View style={[tableStyles.headerCell, { flex: 1 }]}><Text style={{ fontWeight: '700', fontSize: 13, color: '#333' }}>Package Feature</Text></View>
-              <View style={[tableStyles.headerCell, { flex: 2 }]}><Text style={{ fontWeight: '700', fontSize: 13, color: '#333' }}>Inputs</Text></View>
+            <View style={[tableStyles.tableHeader, { flexDirection: 'row', backgroundColor: '#eef2ff', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#c7d2fe' }]}>
+              <View style={{ flex: 1 }}><Text style={{ fontWeight: '800', fontSize: 13, color: theme.colors.primary }}>Package Feature</Text></View>
+              <View style={{ flex: 2 }}><Text style={{ fontWeight: '800', fontSize: 13, color: theme.colors.primary }}>Inputs</Text></View>
             </View>
 
-            <View style={tableStyles.tableRow}>
-              <View style={tableStyles.cellLabel}><Text style={tableStyles.cellLabelText}>Surgeries *</Text></View>
-              <View style={tableStyles.cellInputs}>
+            <View style={[tableStyles.tableRow, { flexDirection: 'row', padding: 12 }]}>
+              <View style={{ flex: 1, paddingRight: 10, justifyContent: 'center' }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#333' }}>Surgeries *</Text></View>
+              <View style={{ flex: 2 }}>
                 {surgeries.length === 0 && <Text style={{ color: theme.colors.textMuted, fontSize: 13, marginBottom: 6 }}>No surgeries added</Text>}
                 {surgeries.map((s, idx) => {
                   return (
@@ -1688,22 +1680,48 @@ export function EstimateFormScreen({ route, navigation }) {
               </View>
             </View>
 
-            <View style={tableStyles.tableRow}>
-              <View style={tableStyles.cellLabel}><Text style={tableStyles.cellLabelText}>Package Name *</Text></View>
-              <View style={tableStyles.cellInputs}>
-                <TextInput
-                  style={tableStyles.tableInput}
-                  value={packageName}
-                  onChangeText={setPackageName}
-                  placeholder="e.g. Gallbladder Removal Package"
-                  placeholderTextColor={theme.colors.textMuted}
+            <View style={[tableStyles.tableRow, { flexDirection: 'row', padding: 12, zIndex: 100 }]}>
+              <View style={{ flex: 1, paddingRight: 10, justifyContent: 'center' }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#333' }}>Package Name *</Text></View>
+              <View style={{ flex: 2, zIndex: 100 }}>
+                <SearchableDropdown
+                  items={allTemplates}
+                  value={packageTemplateId ? (allTemplates.find(t => t.id === packageTemplateId) || null) : (packageName ? { _manualEntry: true, templateName: packageName } : null)}
+                  onSelect={(temp) => {
+                    if (!temp) {
+                       setPackageTemplateId('');
+                       setPackageName('');
+                    } else if (temp._manualEntry) {
+                       setPackageTemplateId('');
+                       setPackageName(temp.templateName);
+                    } else {
+                       setPackageTemplateId(temp.id);
+                       setPackageName(temp.templateName);
+                    }
+                  }}
+                  placeholder="Select or type package name"
+                  keyExtractor={t => t.id || t.templateName}
+                  renderItem={t => t._manualEntry ? t.templateName : `${t.templateName}`}
+                  renderSelected={t => t._manualEntry ? `✏️ ${t.templateName}` : `📄 ${t.templateName}`}
+                  filterFn={(t, q) => t._manualEntry
+                    ? t.templateName.toLowerCase().includes(q.toLowerCase())
+                    : (t.templateName || '').toLowerCase().includes(q.toLowerCase())
+                  }
+                  manualEntryLabel="Not in list? Add as new package name"
                 />
+                
+                {/* Save as template checkbox */}
+                {!packageTemplateId && (packageName || '').trim() !== '' && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                    <TableCheckbox checked={saveAsTemplate} onChange={setSaveAsTemplate} />
+                    <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginLeft: 8 }}>Save this name as new template</Text>
+                  </View>
+                )}
               </View>
             </View>
 
-            <View style={tableStyles.tableRow}>
-              <View style={tableStyles.cellLabel}><Text style={tableStyles.cellLabelText}>Package Amount (₹) *</Text></View>
-              <View style={tableStyles.cellInputs}>
+            <View style={[tableStyles.tableRow, { flexDirection: 'row', padding: 12 }]}>
+              <View style={{ flex: 1, paddingRight: 10, justifyContent: 'center' }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#333' }}>Package Amount (₹) *</Text></View>
+              <View style={{ flex: 2 }}>
                 <TextInput
                   style={tableStyles.tableInput}
                   value={packagePrice}
@@ -1716,9 +1734,9 @@ export function EstimateFormScreen({ route, navigation }) {
             </View>
 
 
-            <View style={tableStyles.tableRow}>
-              <View style={tableStyles.cellLabel}><Text style={tableStyles.cellLabelText}>Expected Stay (Days) *</Text></View>
-              <View style={tableStyles.cellInputs}>
+            <View style={[tableStyles.tableRow, { flexDirection: 'row', padding: 12 }]}>
+              <View style={{ flex: 1, paddingRight: 10, justifyContent: 'center' }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#333' }}>Expected Stay (Days) *</Text></View>
+              <View style={{ flex: 2 }}>
                 <TextInput
                   style={tableStyles.tableInput}
                   value={String(pkgStayOption === -1 ? pkgStayCustom : pkgStayOption)}
@@ -1733,9 +1751,9 @@ export function EstimateFormScreen({ route, navigation }) {
               </View>
             </View>
 
-            <View style={tableStyles.tableRow}>
-              <View style={tableStyles.cellLabel}><Text style={tableStyles.cellLabelText}>Anaesthesia Type *</Text></View>
-              <View style={tableStyles.cellInputs}>
+            <View style={[tableStyles.tableRow, { flexDirection: 'row', padding: 12 }]}>
+              <View style={{ flex: 1, paddingRight: 10, justifyContent: 'center' }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#333' }}>Anaesthesia Type *</Text></View>
+              <View style={{ flex: 2 }}>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <TouchableOpacity
                     style={[tableStyles.itemCellAddBtn, packageAnaesthesiaType === 'GA' && { backgroundColor: theme.colors.primary }]}
@@ -1749,13 +1767,19 @@ export function EstimateFormScreen({ route, navigation }) {
                   >
                     <Text style={{ color: packageAnaesthesiaType === 'LA' ? '#fff' : theme.colors.primary, fontWeight: '700', fontSize: 12 }}>LA</Text>
                   </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[tableStyles.itemCellAddBtn, packageAnaesthesiaType === 'SPINAL' && { backgroundColor: theme.colors.primary }]}
+                    onPress={() => setPackageAnaesthesiaType('SPINAL')}
+                  >
+                    <Text style={{ color: packageAnaesthesiaType === 'SPINAL' ? '#fff' : theme.colors.primary, fontWeight: '700', fontSize: 12 }}>Spinal</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
 
-            <View style={[tableStyles.tableRow, tableStyles.tableRowLast]}>
-              <View style={tableStyles.cellLabel}><Text style={tableStyles.cellLabelText}>Inclusion Note</Text></View>
-              <View style={tableStyles.cellInputs}>
+            <View style={[tableStyles.tableRow, tableStyles.tableRowLast, { flexDirection: 'column', padding: 12 }]}>
+              <View style={{ marginBottom: 8 }}><Text style={{ fontWeight: '600', fontSize: 13, color: '#333' }}>Inclusion Note</Text></View>
+              <View style={{ width: '100%' }}>
                 <TextInput
                   style={[tableStyles.tableInput, { minHeight: 120 }]}
                   value={packageIncludes}
@@ -2350,118 +2374,88 @@ export function EstimateFormScreen({ route, navigation }) {
         </View>
         )}
 
-        {/* ── O: Notes & T&C Templates ── */}
+        {/* ── O: Terms & Conditions ── */}
         <View style={styles.section}>
-          <SectionHeader icon="📝" title="Notes / Inclusions / Exclusions" />
-          <FormLabel text="Notes" />
-          <TextInput style={[styles.input, styles.textarea]} value={notes} onChangeText={setNotes}
-            placeholder="General notes visible on estimate…" placeholderTextColor={theme.colors.textMuted} multiline />
+          <SectionHeader icon="📝" title="Terms & Conditions" />
+          <TextInput style={[styles.input, styles.textarea, { minHeight: 120 }]} value={notes} onChangeText={setNotes}
+            placeholder="Terms and conditions visible on estimate…" placeholderTextColor={theme.colors.textMuted} multiline />
 
-          <View style={{ marginTop: 8, marginBottom: 12 }}>
-            <TouchableOpacity 
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                backgroundColor: theme.colors.surface,
-                padding: 10,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: theme.colors.border
-              }}
-              onPress={() => setShowTemplatesDropdown(!showTemplatesDropdown)}
-            >
-              <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.primary }}>
-                📋 Terms & Conditions Templates
-              </Text>
-              <Text style={{ fontSize: 12, color: theme.colors.primary }}>
-                {showTemplatesDropdown ? '▲ Hide' : '▼ View Templates'}
-              </Text>
-            </TouchableOpacity>
-
-            {showTemplatesDropdown && (
-              <View style={{
-                backgroundColor: '#f9f9f9',
-                borderWidth: 1,
-                borderColor: theme.colors.border,
-                borderTopWidth: 0,
-                borderBottomLeftRadius: 8,
-                borderBottomRightRadius: 8,
-                padding: 10,
-                gap: 8
-              }}>
-                {termsTemplates.map(t => (
-                  <View key={t.id} style={{
-                    backgroundColor: theme.colors.surface,
-                    padding: 10,
-                    borderRadius: 6,
-                    borderWidth: 1,
-                    borderColor: '#eaeaea',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <View style={{ flex: 1, marginRight: 10 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.text }}>{t.name}</Text>
-                      <Text style={{ fontSize: 10, color: theme.colors.textMuted, marginTop: 2 }} numberOfLines={1}>
-                        {t.content}
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                      <TouchableOpacity 
-                        style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 4 }}
-                        onPress={() => handleApplyTemplate(t.content, 'append')}
-                      >
-                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Append</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={{ backgroundColor: theme.colors.success, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 4 }}
-                        onPress={() => handleApplyTemplate(t.content, 'replace')}
-                      >
-                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Replace</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={{ backgroundColor: '#f0f0f0', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 4, borderWidth: 1, borderColor: '#ccc' }}
-                        onPress={() => {
-                          setEditingTemplate(t);
-                          setIsEditingModalVisible(true);
-                        }}
-                      >
-                        <Text style={{ color: '#333', fontSize: 11, fontWeight: '600' }}>✏️ Edit</Text>
-                      </TouchableOpacity>
-                    </View>
+          <View style={{ marginTop: 12, marginBottom: 4 }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.primary, marginBottom: 8 }}>
+              📋 Terms & Conditions Templates
+            </Text>
+            <View style={{
+              backgroundColor: '#f9f9f9',
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              borderRadius: 8,
+              padding: 10,
+              gap: 8
+            }}>
+              {termsTemplates.map(t => (
+                <View key={t.id} style={{
+                  backgroundColor: theme.colors.surface,
+                  padding: 10,
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: '#eaeaea',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: theme.colors.text }}>{t.name}</Text>
+                    <Text style={{ fontSize: 10, color: theme.colors.textMuted, marginTop: 2 }} numberOfLines={2}>
+                      {t.content}
+                    </Text>
                   </View>
-                ))}
-                <TouchableOpacity 
-                  style={{
-                    backgroundColor: 'rgba(0,0,0,0.04)',
-                    padding: 8,
-                    borderRadius: 6,
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderStyle: 'dashed',
-                    borderColor: '#ccc',
-                    marginTop: 4
-                  }}
-                  onPress={() => {
-                    setEditingTemplate({ id: '', name: '', content: '' });
-                    setIsEditingModalVisible(true);
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#666' }}>
-                    ➕ Add Custom Terms Template
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <TouchableOpacity 
+                      style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 4 }}
+                      onPress={() => handleApplyTemplate(t.content, 'append')}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Append</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={{ backgroundColor: theme.colors.success, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 4 }}
+                      onPress={() => handleApplyTemplate(t.content, 'replace')}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>Replace</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={{ backgroundColor: '#f0f0f0', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 4, borderWidth: 1, borderColor: '#ccc' }}
+                      onPress={() => {
+                        setEditingTemplate(t);
+                        setIsEditingModalVisible(true);
+                      }}
+                    >
+                      <Text style={{ color: '#333', fontSize: 11, fontWeight: '600' }}>✏️ Edit</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+              <TouchableOpacity 
+                style={{
+                  backgroundColor: 'rgba(0,0,0,0.04)',
+                  padding: 8,
+                  borderRadius: 6,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderStyle: 'dashed',
+                  borderColor: '#ccc',
+                  marginTop: 4
+                }}
+                onPress={() => {
+                  setEditingTemplate({ id: '', name: '', content: '' });
+                  setIsEditingModalVisible(true);
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#666' }}>
+                  ➕ Add Custom Terms Template
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-
-          <FormLabel text="Inclusions" />
-          <TextInput style={[styles.input, styles.textarea]} value={inclusions} onChangeText={setInclusions}
-            placeholder="What is included in this estimate…" placeholderTextColor={theme.colors.textMuted} multiline />
-          <FormLabel text="Exclusions" />
-          <TextInput style={[styles.input, styles.textarea]} value={exclusions} onChangeText={setExclusions}
-            placeholder="What is NOT included (ICU, blood, implants…)" placeholderTextColor={theme.colors.textMuted} multiline />
         </View>
 
         {/* Bottom spacer for sticky bar */}

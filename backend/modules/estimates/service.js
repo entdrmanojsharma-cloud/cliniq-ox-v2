@@ -250,9 +250,9 @@ class EstimatesService {
   async updateStatus(id, hospitalId, newStatus, remarks, userContext) {
     const existing = await this.getEstimateById(id, hospitalId);
 
-    // Role gate: Only DOCTOR can approve or reject estimates
-    if ((newStatus === 'APPROVED' || newStatus === 'REJECTED') && userContext.role !== 'DOCTOR') {
-      const err = new Error('Only Doctor users can approve or reject estimates.');
+    // Role gate: DOCTOR, ADMIN, SUPER_ADMIN can approve
+    if ((newStatus === 'APPROVED' || newStatus === 'REJECTED') && !['DOCTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userContext.role)) {
+      const err = new Error('Only Doctors and Administrators can approve or reject estimates.');
       err.status = 403;
       err.code = 'ERR_APPROVAL_FORBIDDEN';
       throw err;
@@ -272,7 +272,7 @@ class EstimatesService {
       PENDING_APPROVAL: ['APPROVED', 'REJECTED', 'CANCELLED'],
       APPROVED: ['LOCKED', 'CANCELLED'],
       REJECTED: ['DRAFT', 'PENDING_APPROVAL', 'CANCELLED'],
-      LOCKED: (userContext.role === 'DOCTOR') ? ['APPROVED'] : [],
+      LOCKED: (['DOCTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userContext.role)) ? ['APPROVED'] : [],
       CANCELLED: []
     };
 
@@ -776,59 +776,81 @@ class EstimatesService {
     const gstAmount = taxableAmount * (gstRate / 100);
     const grandTotal = taxableAmount + gstAmount + nonTaxableSubtotal;
 
+    const sanitizeDecimal = (val) => {
+      const num = Number(val);
+      if (isNaN(num) || !isFinite(num)) return 0.00;
+      if (num > 99999999.99) return 99999999.99;
+      if (num < -99999999.99) return -99999999.99;
+      return num;
+    };
+
     return {
       expectedStayDays,
-      expectedDurationMinutes,
-      icuDays,
-      icuDailyRate,
-      calculatedOtCharge,
-      actualOtCharge: actualOt,
+      expectedDurationMinutes: isNaN(Number(expectedDurationMinutes)) ? 0 : Number(expectedDurationMinutes),
+      icuDays: isNaN(Number(icuDays)) ? 0 : Number(icuDays),
+      icuDailyRate: sanitizeDecimal(icuDailyRate),
+      calculatedOtCharge: sanitizeDecimal(calculatedOtCharge),
+      actualOtCharge: sanitizeDecimal(actualOt),
       otDiscountType: otDiscType,
-      otDiscountValue: otDiscVal,
-      otDiscountAmount: otDiscAmt,
-      calculatedAnaesthesiaCharge,
-      actualAnaesthesiaCharge: actualAnaesth,
-      anaesthesiaDiscountPct,
+      otDiscountValue: sanitizeDecimal(otDiscVal),
+      otDiscountAmount: sanitizeDecimal(otDiscAmt),
+      calculatedAnaesthesiaCharge: sanitizeDecimal(calculatedAnaesthesiaCharge),
+      actualAnaesthesiaCharge: sanitizeDecimal(actualAnaesth),
+      anaesthesiaDiscountPct: sanitizeDecimal(anaesthesiaDiscountPct),
       anaesthesiaDiscountType: anaesthDiscType,
-      anaesthesiaDiscountValue: anaesthDiscVal,
-      anaesthesiaDiscountAmount: anaesthDiscAmt,
+      anaesthesiaDiscountValue: sanitizeDecimal(anaesthDiscVal),
+      anaesthesiaDiscountAmount: sanitizeDecimal(anaesthDiscAmt),
       roomId: data.roomId || null,
-      roomDailyRate,
-      roomOriginalAmount,
+      roomDailyRate: sanitizeDecimal(roomDailyRate),
+      roomOriginalAmount: sanitizeDecimal(roomOriginalAmount),
       roomDiscountType: roomDiscType,
-      roomDiscountValue: roomDiscVal,
-      roomDiscountAmount: roomDiscAmt,
-      roomFinalAmount,
-      nursingDailyRate,
-      nursingOriginalAmount,
+      roomDiscountValue: sanitizeDecimal(roomDiscVal),
+      roomDiscountAmount: sanitizeDecimal(roomDiscAmt),
+      roomFinalAmount: sanitizeDecimal(roomFinalAmount),
+      nursingDailyRate: sanitizeDecimal(nursingDailyRate),
+      nursingOriginalAmount: sanitizeDecimal(nursingOriginalAmount),
       nursingDiscountType: nursingDiscType,
-      nursingDiscountValue: nursingDiscVal,
-      nursingDiscountAmount: nursingDiscAmt,
-      nursingFinalAmount,
-      icuOriginalAmount,
+      nursingDiscountValue: sanitizeDecimal(nursingDiscVal),
+      nursingDiscountAmount: sanitizeDecimal(nursingDiscAmt),
+      nursingFinalAmount: sanitizeDecimal(nursingFinalAmount),
+      icuOriginalAmount: sanitizeDecimal(icuOriginalAmount),
       icuDiscountType: icuDiscType,
-      icuDiscountValue: icuDiscVal,
-      icuDiscountAmount: icuDiscAmt,
-      icuFinalAmount,
-      serviceDailyRate,
-      serviceOriginalAmount,
+      icuDiscountValue: sanitizeDecimal(icuDiscVal),
+      icuDiscountAmount: sanitizeDecimal(icuDiscAmt),
+      icuFinalAmount: sanitizeDecimal(icuFinalAmount),
+      serviceDailyRate: sanitizeDecimal(serviceDailyRate),
+      serviceOriginalAmount: sanitizeDecimal(serviceOriginalAmount),
       serviceDiscountType: serviceDiscType,
-      serviceDiscountValue: serviceDiscVal,
-      serviceDiscountAmount: serviceDiscAmt,
-      serviceFinalAmount,
-      subtotal,
-      discount: globalDiscAmt,
+      serviceDiscountValue: sanitizeDecimal(serviceDiscVal),
+      serviceDiscountAmount: sanitizeDecimal(serviceDiscAmt),
+      serviceFinalAmount: sanitizeDecimal(serviceFinalAmount),
+      subtotal: sanitizeDecimal(subtotal),
+      discount: sanitizeDecimal(globalDiscAmt),
       discountType: globalDiscType,
-      discountValue: globalDiscVal,
-      discountAmount: globalDiscAmt,
+      discountValue: sanitizeDecimal(globalDiscVal),
+      discountAmount: sanitizeDecimal(globalDiscAmt),
       discountCode: discountCodeRecord ? discountCodeRecord.code : null,
-      discountCodeBenefit,
-      taxableAmount,
-      gstRate,
-      gstAmount,
-      grandTotal,
-      surgeries: resolvedSurgeries,
-      items: resolvedItems
+      discountCodeBenefit: sanitizeDecimal(discountCodeBenefit),
+      taxableAmount: sanitizeDecimal(taxableAmount),
+      gstRate: sanitizeDecimal(gstRate),
+      gstAmount: sanitizeDecimal(gstAmount),
+      grandTotal: sanitizeDecimal(grandTotal),
+      surgeries: resolvedSurgeries.map(s => ({
+        ...s,
+        surgeryCost: sanitizeDecimal(s.surgeryCost),
+        discountValue: sanitizeDecimal(s.discountValue),
+        discountAmount: sanitizeDecimal(s.discountAmount),
+        discountPct: sanitizeDecimal(s.discountPct),
+        finalAmount: sanitizeDecimal(s.finalAmount)
+      })),
+      items: resolvedItems.map(i => ({
+        ...i,
+        rate: sanitizeDecimal(i.rate),
+        originalAmount: sanitizeDecimal(i.originalAmount),
+        discountValue: sanitizeDecimal(i.discountValue),
+        discountAmount: sanitizeDecimal(i.discountAmount),
+        amount: sanitizeDecimal(i.amount)
+      }))
     };
   }
 

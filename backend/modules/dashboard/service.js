@@ -32,6 +32,7 @@ class DashboardService {
 
     const [
       patientCount,
+      totalPatientCount,
       estimateCount,
       estimateSum,
       invoiceCount,
@@ -42,9 +43,14 @@ class DashboardService {
       approvedEstimates,
       billingDefaults
     ] = await Promise.all([
-      // Patients — count only
+      // Patients — count only in period
       this.prisma.patient.count({
         where: { hospitalId, isActive: true, createdAt: dateFilter }
+      }),
+
+      // Patients - count total
+      this.prisma.patient.count({
+        where: { hospitalId, isActive: true }
       }),
 
       // Estimates — count
@@ -141,6 +147,7 @@ class DashboardService {
       },
       patients: {
         count: patientCount,
+        totalCount: totalPatientCount
       },
       estimates: {
         count:      estimateCount,

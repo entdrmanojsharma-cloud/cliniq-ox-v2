@@ -458,6 +458,7 @@ export function PatientDetailScreen({ route, navigation }) {
   const { estimates, fetchEstimates } = useEstimatesStore();
   const [patientEvents, setPatientEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     fetchEstimates();
@@ -475,12 +476,36 @@ export function PatientDetailScreen({ route, navigation }) {
       const data = await api.get('/calendar?limit=200');
       const allEvents = data.events || [];
       const filtered = allEvents.filter(e => e.patientId === id || e.patient?.id === id);
+      filtered.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
       setPatientEvents(filtered);
     } catch (err) {
       console.log('Error loading patient events:', err.message);
     } finally {
       setLoadingEvents(false);
     }
+  };
+
+  const handleDeleteEvent = (eventId) => {
+    Alert.alert(
+      'Confirm Delete',
+      'Are you sure you want to delete this scheduled event?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/calendar/${eventId}`);
+              loadPatientEvents();
+              Alert.alert('Success', 'Event deleted successfully.');
+            } catch (err) {
+              Alert.alert('Error', err.message || 'Failed to delete event.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (!patient) return null;
@@ -503,7 +528,70 @@ export function PatientDetailScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <Text style={theme.typography.title}>{patient.name}</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, position: 'relative', zIndex: 1000 }}>
+        <Text style={theme.typography.title}>{patient.name}</Text>
+        <View style={{ position: 'relative' }}>
+          <TouchableOpacity 
+            style={{ 
+              paddingHorizontal: 12, 
+              paddingVertical: 6, 
+              borderRadius: 8, 
+              backgroundColor: 'rgba(255,255,255,0.04)', 
+              borderWidth: 1, 
+              borderColor: theme.colors.border,
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: 36,
+              minHeight: 36
+            }}
+            onPress={() => setShowMenu(!showMenu)}
+          >
+            <Text style={{ fontSize: 18, color: theme.colors.text, fontWeight: 'bold' }}>⋮</Text>
+          </TouchableOpacity>
+          {showMenu && (
+            <View style={{
+              position: 'absolute',
+              right: 0,
+              top: 40,
+              backgroundColor: theme.colors.surface,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              borderRadius: 8,
+              width: 140,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 8,
+              elevation: 8,
+              zIndex: 1001
+            }}>
+              <TouchableOpacity 
+                style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  padding: 12, 
+                  borderBottomWidth: 1, 
+                  borderBottomColor: theme.colors.border
+                }}
+                onPress={() => { setShowMenu(false); navigation.navigate('PatientForm', { id }); }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.text }}>✏️  Edit Patient</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  padding: 12
+                }}
+                onPress={() => { setShowMenu(false); handleDelete(); }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.danger }}>🗑️  Delete</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
       <View style={styles.detailCard}>
         <Text style={styles.detailLabel}>First Name: <Text style={styles.detailValue}>{firstName}</Text></Text>
         <Text style={styles.detailLabel}>Last Name: <Text style={styles.detailValue}>{lastName}</Text></Text>
@@ -518,13 +606,12 @@ export function PatientDetailScreen({ route, navigation }) {
           <Text style={styles.detailLabel}>Aadhaar Number: <Text style={styles.detailValue}>{aadhaar}</Text></Text>
         ) : null}
         <Text style={styles.detailLabel}>Address: <Text style={styles.detailValue}>{patient.address || 'N/A'}</Text></Text>
-        <Text style={styles.detailLabel}>Referring Doctor: <Text style={styles.detailValue}>{patient.referringDoctor || 'N/A'}</Text></Text>
+
         {patient.consultingDoctor ? (
           <Text style={styles.detailLabel}>Consulting Doctor: <Text style={[styles.detailValue, { color: theme.colors.primaryLight }]}>Dr. {patient.consultingDoctor.firstName} {patient.consultingDoctor.lastName}</Text></Text>
         ) : (
           <Text style={styles.detailLabel}>Consulting Doctor: <Text style={styles.detailValue}>N/A</Text></Text>
         )}
-        <Text style={styles.detailLabel}>Notes: <Text style={styles.detailValue}>{notes || 'None'}</Text></Text>
       </View>
 
       <Text style={[theme.typography.title, { fontSize: 16, marginTop: theme.spacing.lg, marginBottom: 8 }]}>Associated Booking Events</Text>
@@ -543,14 +630,43 @@ export function PatientDetailScreen({ route, navigation }) {
           </View>
         </View>
       ) : (
-        patientEvents.map(event => {
+        patientEvents.map((event, index) => {
           const linkedEstimate = estimates.find(est => est.eventId === event.id);
+          const isApproved = linkedEstimate && (linkedEstimate.status === 'APPROVED' || linkedEstimate.status === 'LOCKED');
+          const shortId = event.id.split('-')[0].toUpperCase();
+          
+          let surgeryNames = 'N/A';
+          if (isApproved && linkedEstimate.estimateSurgeries && linkedEstimate.estimateSurgeries.length > 0) {
+            surgeryNames = linkedEstimate.estimateSurgeries.map(s => s.surgery?.surgeryName || s.surgeryName || 'Unknown Procedure').join(', ');
+          }
+
+          const scheduledDate = new Date(event.startTime);
+          const formattedDate = scheduledDate.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+          const formattedTime = scheduledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
           return (
             <View key={event.id} style={styles.eventCard}>
               <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={theme.typography.caption}>Scheduled: {new Date(event.startTime).toLocaleDateString()}</Text>
-                <Text style={theme.typography.caption}>Status: {event.eventStatus}</Text>
+                <Text style={styles.eventTitle}>{index + 1}. {event.title}</Text>
+                
+                {isApproved ? (
+                  <View style={{ backgroundColor: 'rgba(52, 211, 153, 0.08)', padding: 8, borderRadius: 6, marginVertical: 6, borderWidth: 1, borderColor: 'rgba(52, 211, 153, 0.3)' }}>
+                    <Text style={{ fontWeight: '800', color: theme.colors.text, fontSize: 13, marginBottom: 4 }}>🏥 Surgery Details</Text>
+                    <Text style={{ fontSize: 12, color: theme.colors.text }}>
+                      <Text style={{ fontWeight: '700' }}>Procedure:</Text> {surgeryNames}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: theme.colors.text, marginTop: 2 }}>
+                      <Text style={{ fontWeight: '700' }}>Date & Time:</Text> {formattedDate} at {formattedTime}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={theme.typography.caption}>Scheduled: {new Date(event.startTime).toLocaleDateString()}</Text>
+                    <Text style={theme.typography.caption}>Status: {event.eventStatus}</Text>
+                  </>
+                )}
+
+                <Text style={theme.typography.caption}>ID: {shortId}</Text>
                 {linkedEstimate && (
                   <Text style={[theme.typography.caption, { color: theme.colors.success, fontWeight: '700', marginTop: 4 }]}>
                     ✅ Linked Estimate: {linkedEstimate.estimateNumber} ({linkedEstimate.status})
@@ -573,12 +689,20 @@ export function PatientDetailScreen({ route, navigation }) {
                     <Text style={styles.eventActionBtnText}>➕ Create Estimate</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity 
-                  style={[styles.eventActionBtn, { backgroundColor: theme.colors.warning }]}
-                  onPress={() => navigation.navigate('CalendarEventForm', { id: event.id })}
-                >
-                  <Text style={[styles.eventActionBtnText, { color: '#000000' }]}>📅 Reschedule</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <TouchableOpacity 
+                    style={[styles.eventActionBtn, { flex: 1, backgroundColor: theme.colors.warning }]}
+                    onPress={() => navigation.navigate('CalendarEventForm', { id: event.id })}
+                  >
+                    <Text style={[styles.eventActionBtnText, { color: '#000000' }]}>📅 Reschedule</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.eventActionBtn, { paddingHorizontal: 12, backgroundColor: theme.colors.error }]}
+                    onPress={() => handleDeleteEvent(event.id)}
+                  >
+                    <Text style={styles.eventActionBtnText}>🗑️</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           );
@@ -594,14 +718,6 @@ export function PatientDetailScreen({ route, navigation }) {
         </TouchableOpacity>
       )}
 
-      <View style={[styles.actionRow, { marginTop: theme.spacing.lg }]}>
-        <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('PatientForm', { id })}>
-          <Text style={styles.actionButtonText}>Edit Patient</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-          <Text style={styles.actionButtonText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
     </ScrollView>
   );
 }
@@ -684,12 +800,25 @@ export function PatientFormScreen({ route, navigation }) {
       
       if (id) {
         await updatePatient(id, payload);
-        Alert.alert('Success', 'Patient details updated successfully.');
+        navigation.goBack();
       } else {
-        await createPatient(payload);
-        Alert.alert('Success', 'Patient registered successfully.');
+        const newPatient = await createPatient(payload);
+        Alert.alert(
+          'Registration Successful',
+          'Patient registered successfully. What would you like to do next?',
+          [
+            { 
+              text: 'Go to Dashboard', 
+              onPress: () => navigation.navigate('Dashboard'),
+              style: 'cancel'
+            },
+            { 
+              text: 'Schedule Surgery', 
+              onPress: () => navigation.navigate('CalendarEventForm', { id: null, patientId: newPatient?.id, redirectToEstimate: false })
+            }
+          ]
+        );
       }
-      navigation.goBack();
     } catch (err) {
       Alert.alert('Save Failed', err.message);
     } finally {

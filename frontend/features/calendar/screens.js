@@ -6,3 +6,4 @@
 export { CalendarScreen } from './CalendarScreen';
 export { CalendarEventDetailScreen } from './CalendarEventDetailScreen';
 export { CalendarEventFormScreen } from './CalendarEventFormScreen';
+export { FutureSurgeriesScreen } from './FutureSurgeriesScreen';

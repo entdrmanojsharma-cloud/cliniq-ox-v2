@@ -118,6 +118,10 @@ export function SidebarContent({ navigation, onClose }) {
               <Text style={styles.bullet}>•</Text>
               <Text style={styles.submenuText}>Surgery Queue</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.submenuItem} onPress={() => nav('FutureSurgeries')}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.submenuText}>Future Surgeries</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.submenuItem} onPress={() => nav('Calendar', { filterType: 'SPECIAL' })}>
               <Text style={styles.bullet}>•</Text>
               <Text style={styles.submenuText}>Special Events</Text>

@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   StyleSheet, Text, View, FlatList, TouchableOpacity,
-  ActivityIndicator, Platform, ScrollView, TextInput
+  ActivityIndicator, Platform, ScrollView, TextInput, Alert
 } from 'react-native';
 import { useCalendarStore } from './store';
 import { theme } from '../../shared/styles/theme';
@@ -101,14 +101,26 @@ const formatRecurrence = (rule) => {
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export function CalendarScreen({ navigation }) {
   const { 
-    events, fetchEvents, loading,
-    selectedDate, setSelectedDate,
-    weekStartDate, setWeekStartDate,
-    nextWeek, prevWeek 
+    events, loading, fetchEvents, weekStartDate, setWeekStartDate, 
+    nextWeek, prevWeek, selectedDate, setSelectedDate, deleteEvent
   } = useCalendarStore();
 
   const { isMobile, isTablet } = useResponsive();
   const [searchText, setSearchText] = useState('');
+
+  const handleDelete = (id) => {
+    Alert.alert('Delete Event', 'Are you sure you want to delete this event?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await deleteEvent(id);
+            Alert.alert('Success', 'Event deleted successfully');
+          } catch (e) {
+            Alert.alert('Error', e.message || 'Failed to delete event');
+          }
+      }}
+    ]);
+  };
 
   useEffect(() => {
     fetchEvents();
@@ -299,33 +311,57 @@ export function CalendarScreen({ navigation }) {
           keyExtractor={(item) => item.occurrenceId || item.id}
           contentContainerStyle={[styles.listContent, isMobile && styles.listContentMobile]}
           renderItem={({ item }) => {
+            const isPast = new Date(item.startTime) < new Date();
+            const isTomorrow = new Date(item.startTime).toISOString().split('T')[0] === new Date(new Date().getTime() + 86400000).toISOString().split('T')[0];
+            const isPendingOutcome = isPast && (item.eventStatus === 'PENDING' || item.eventStatus === 'APPROVED');
+            const isHistorical = isPast && !isPendingOutcome;
+
             const [upperColor, middleColor, lowerColor] = getEventBands(item.eventType);
             return (
               <TouchableOpacity
-                style={[styles.card, isMobile && styles.cardMobile]}
+                style={[
+                  styles.card, 
+                  isMobile && styles.cardMobile,
+                  isHistorical && styles.cardHistorical,
+                  isPendingOutcome && styles.cardPendingOutcome,
+                  !isPast && isTomorrow && styles.cardTomorrow
+                ]}
                 onPress={() => navigation.navigate('CalendarEventDetail', { id: item.id })}
               >
                 {/* 3-Band Background Zoning */}
-                <View style={styles.cardBackgroundContainer}>
-                  <View style={[styles.cardBand, { backgroundColor: upperColor }]} />
-                  <View style={[styles.cardBand, { backgroundColor: middleColor }]} />
-                  <View style={[styles.cardBand, { backgroundColor: lowerColor }]} />
-                </View>
+                {!isHistorical && (
+                  <View style={styles.cardBackgroundContainer}>
+                    <View style={[styles.cardBand, { backgroundColor: upperColor }]} />
+                    <View style={[styles.cardBand, { backgroundColor: middleColor }]} />
+                    <View style={[styles.cardBand, { backgroundColor: lowerColor }]} />
+                  </View>
+                )}
 
                 {/* Inner Content Layer */}
                 <View style={[styles.cardContent, isMobile && styles.cardContentMobile]}>
                   <View style={styles.cardHeader}>
-                    <View style={[
-                      styles.categoryTag,
-                      item.eventType === 'SURGERY' ? styles.tagSurgery :
-                      item.eventType === 'OPD' ? styles.tagOpd : styles.tagOther
-                    ]}>
-                      <Text style={[
-                        item.eventType === 'SURGERY' ? styles.categoryTagTextSurgery :
-                        item.eventType === 'OPD' ? styles.categoryTagTextOpd : styles.categoryTagTextOther
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={[
+                        styles.categoryTag,
+                        item.eventType === 'SURGERY' ? styles.tagSurgery :
+                        item.eventType === 'OPD' ? styles.tagOpd : styles.tagOther
                       ]}>
-                        {item.eventType}
-                      </Text>
+                        <Text style={[
+                          item.eventType === 'SURGERY' ? styles.categoryTagTextSurgery :
+                          item.eventType === 'OPD' ? styles.categoryTagTextOpd : styles.categoryTagTextOther
+                        ]}>
+                          {item.eventType}
+                        </Text>
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.deleteIconButton} 
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDelete(item.id);
+                        }}
+                      >
+                        <Text style={styles.deleteIconText}>🗑️</Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={[
                       styles.statusTag,
@@ -336,7 +372,19 @@ export function CalendarScreen({ navigation }) {
                     </View>
                   </View>
 
-                  <Text style={[styles.cardTitle, isMobile && styles.cardTitleMobile]}>{item.title}</Text>
+                  <Text style={[
+                    styles.cardTitle, 
+                    isMobile && styles.cardTitleMobile,
+                    isHistorical && styles.textHistorical
+                  ]}>
+                    {item.eventType === 'SURGERY' 
+                      ? (item.surgery?.surgeryName 
+                          ? `Surgery: ${item.surgery.surgeryName}` 
+                          : (item.estimate?.estimateSurgeries?.length > 0
+                              ? `Surgery: ${item.estimate.estimateSurgeries.map(s => s.surgery?.surgeryName || s.surgeryName || 'Unspecified').join(', ')}`
+                              : (item.title.includes(item.patient?.name) ? `Surgery: Pending` : `Surgery: ${item.title}`)))
+                      : item.title}
+                  </Text>
 
                   <View style={[styles.cardMetaRow, isMobile && styles.cardMetaRowMobile]}>
                     <Text style={styles.cardMeta}>⏰ {formatTime(item.startTime)} ({item.durationMinutes || 0}m)</Text>
@@ -477,12 +525,20 @@ const styles = StyleSheet.create({
   loader: { marginVertical: 32 },
 
   card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12, marginBottom: 10,
+    backgroundColor: theme.colors.surface, borderRadius: 12, marginBottom: 10,
     borderWidth: 1, borderColor: theme.colors.border,
-    position: 'relative',
-    overflow: 'hidden'
+    overflow: 'hidden', position: 'relative'
   },
+  cardHistorical: {
+    backgroundColor: '#f1f5f9', borderColor: '#cbd5e1', opacity: 0.8
+  },
+  cardPendingOutcome: {
+    borderColor: '#ef4444', borderWidth: 2
+  },
+  cardTomorrow: {
+    borderColor: '#f59e0b', borderWidth: 2, backgroundColor: '#fffbeb'
+  },
+  textHistorical: { color: '#64748b' },
   cardMobile: { borderRadius: 10 },
   cardBackgroundContainer: {
     position: 'absolute',
@@ -532,9 +588,22 @@ const styles = StyleSheet.create({
   tagOpd: { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)' },
   tagOther: { backgroundColor: 'rgba(249, 115, 22, 0.15)', borderWidth: 1, borderColor: 'rgba(249, 115, 22, 0.3)' },
   categoryTagTextSurgery: { fontSize: 10, fontWeight: '700', color: '#34d399' },
-  categoryTagTextOpd: { fontSize: 10, fontWeight: '700', color: '#f87171' },
-  categoryTagTextOther: { fontSize: 10, fontWeight: '700', color: '#fb923c' },
-  statusTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  categoryTagTextOpd: { color: theme.colors.primary, fontWeight: '700', fontSize: 10 },
+  categoryTagTextOther: { color: theme.colors.warning, fontWeight: '700', fontSize: 10 },
+
+  deleteIconButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: '#fee2e2',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#fca5a5'
+  },
+  deleteIconText: {
+    fontSize: 12
+  },
+
+  statusTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   statusApproved: { backgroundColor: '#dcfce7' },
   statusCompleted: { backgroundColor: '#e0e7ff' },
   statusPending: { backgroundColor: '#fef3c7' },

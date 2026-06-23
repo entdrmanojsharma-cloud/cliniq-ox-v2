@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   StyleSheet, Text, View, ActivityIndicator, TouchableOpacity,
   ScrollView, Modal, Pressable, TextInput, RefreshControl, Alert, Platform
@@ -960,11 +961,13 @@ export function DashboardScreen({ navigation }) {
     return () => clearInterval(t);
   }, []);
 
-  // Initial loads
-  useEffect(() => {
-    fetchProfile();
-    loadDashboardData();
-  }, [currentDate]);
+  // Refresh data on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+      loadDashboardData();
+    }, [currentDate])
+  );
 
   const loadDashboardData = async () => {
     setStatsLoading(true);
@@ -991,15 +994,13 @@ export function DashboardScreen({ navigation }) {
       }
 
       const [
-        patientsRes,
         monthStatsRes,
         todayStatsRes,
         calendarRes,
         invoicesRes,
         recentPatientsRes
       ] = await Promise.all([
-        api.get('/patients?limit=1').catch(() => ({ meta: { total: 0 } })),
-        api.get(`/dashboard/stats?from=${startOfMonth}&to=${endOfMonth}`).catch(() => ({ patients: { count: 0 } })),
+        api.get(`/dashboard/stats?from=${startOfMonth}&to=${endOfMonth}`).catch(() => ({ patients: { count: 0, totalCount: 0 } })),
         api.get(`/dashboard/stats?from=${todayStr}&to=${todayStr}`).catch(() => ({ receipts: { totalValue: 0 } })),
         api.get(`/calendar?startFrom=${calStart}&startTo=${calEnd}&limit=500`).catch(() => ({ events: [] })),
         api.get('/invoices?limit=100').catch(() => ({ invoices: [] })),
@@ -1009,7 +1010,7 @@ export function DashboardScreen({ navigation }) {
       const events = calendarRes.events || [];
       
       // Calculate dashboard metrics
-      const totalPatients = patientsRes.meta?.total || 0;
+      const totalPatients = monthStatsRes.patients?.totalCount || 0;
       const newPatientsThisMonth = monthStatsRes.patients?.count || 0;
       
       const todayEvents = events.filter(e => e.startTime.split('T')[0] === todayStr);
@@ -1575,7 +1576,9 @@ export function DashboardScreen({ navigation }) {
                       {ev.eventType === 'SURGERY' 
                         ? (ev.surgery?.surgeryName 
                             ? `Surgery: ${ev.surgery.surgeryName}` 
-                            : (ev.title.includes(ev.patient?.name) ? `Surgery: Unspecified` : `Surgery: ${ev.title}`))
+                            : (ev.estimate?.estimateSurgeries?.length > 0
+                                ? `Surgery: ${ev.estimate.estimateSurgeries.map(s => s.surgery?.surgeryName || s.surgeryName || 'Unspecified').join(', ')}`
+                                : (ev.title.includes(ev.patient?.name) ? `Surgery: Pending` : `Surgery: ${ev.title}`)))
                         : ev.title}
                     </Text>
                     {ev.patient && (

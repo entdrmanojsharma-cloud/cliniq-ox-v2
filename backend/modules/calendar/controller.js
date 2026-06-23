@@ -85,6 +85,20 @@ class CalendarController {
     }
   }
 
+  async postponeOne(req, res, next) {
+    try {
+      const userContext = {
+        userId: req.user.userId,
+        email: req.user.email || 'user@cliniqox.com',
+        role: req.user.role
+      };
+      const data = await this.service.postponeEvent(req.params.id, req.user.hospitalId, req.body, userContext);
+      return sendSuccess(res, 200, data);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async completeOne(req, res, next) {
     try {
       const userContext = {

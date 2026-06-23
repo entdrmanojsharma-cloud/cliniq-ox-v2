@@ -78,5 +78,17 @@ export const useCalendarStore = create((set, get) => ({
       set({ loading: false });
       throw err;
     }
+  },
+
+  deleteEvent: async (id) => {
+    set({ loading: true });
+    try {
+      await api.delete(`/calendar/${id}`);
+      set({ loading: false });
+      get().fetchEvents();
+    } catch (err) {
+      set({ loading: false });
+      throw err;
+    }
   }
 }));

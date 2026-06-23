@@ -13,7 +13,7 @@ import { ReceiptsListScreen, ReceiptDetailScreen, ReceiptFormScreen } from './fe
 import { RefundsListScreen, RefundDetailScreen, RefundFormScreen } from './features/refunds/screens';
 import { CreditNotesListScreen, CreditNoteDetailScreen, CreditNoteFormScreen } from './features/credit-notes/screens';
 import { TemplatesListScreen, TemplateDetailScreen, TemplateFormScreen } from './features/templates/screens';
-import { CalendarScreen, CalendarEventDetailScreen, CalendarEventFormScreen } from './features/calendar/screens';
+import { CalendarScreen, CalendarEventDetailScreen, CalendarEventFormScreen, FutureSurgeriesScreen } from './features/calendar/screens';
 import { OtRoomsScreen, RoomsScreen, HospitalChargesScreen, PendingChargesScreen, DiagnosisMasterScreen } from './features/master-data/screens';
 import { HospitalProfileScreen } from './features/settings/screens';
 import { BillingDefaultsScreen } from './features/settings/BillingDefaultsScreen';
@@ -29,6 +29,8 @@ import { AddStaffScreen } from './features/auth/AddStaffScreen';
 import { DataManagementScreen } from './features/data-management/screens';
 import { useAlertStore } from './shared/utils/alertStore';
 import { AlertModal } from './shared/components/AlertModal';
+import { useToastStore } from './shared/utils/toastStore';
+import { ToastNotification } from './shared/components/ToastNotification';
 
 // Notifications
 import { NotificationsScreen } from './features/notifications/screens';
@@ -110,7 +112,16 @@ const appStyles = StyleSheet.create({
 
 // Globally override Alert.alert to render our premium on-screen modal on both web and native platforms
 Alert.alert = (title, message, buttons) => {
-  useAlertStore.getState().showAlert(title, message, buttons);
+  // If this is a success or saved notification with no custom interactive buttons, show it as a non-blocking toast
+  const isSimpleSuccess = 
+    (title === 'Success' || title === 'Saved' || title === 'Updated' || title === 'Done') && 
+    (!buttons || buttons.length === 0 || (buttons.length === 1 && (!buttons[0].onPress || buttons[0].text === 'OK')));
+
+  if (isSimpleSuccess) {
+    useToastStore.getState().showToast(message || title, 'success');
+  } else {
+    useAlertStore.getState().showAlert(title, message, buttons);
+  }
 };
 
 class ErrorBoundary extends React.Component {
@@ -407,6 +418,7 @@ export default function App() {
               <Stack.Screen name="Calendar" component={CalendarScreen} />
               <Stack.Screen name="CalendarEventDetail" component={CalendarEventDetailScreen} />
               <Stack.Screen name="CalendarEventForm" component={CalendarEventFormScreen} />
+              <Stack.Screen name="FutureSurgeries" component={FutureSurgeriesScreen} options={{ title: 'Future Surgeries - Cliniq-OX' }} />
 
               {/* Master Data */}
               <Stack.Screen name="OtRooms" component={OtRoomsScreen} />
@@ -444,6 +456,7 @@ export default function App() {
         </View>
       </NavigationContainer>
       <AlertModal />
+      <ToastNotification />
       <GlobalThemeModal visible={themeModalOpen} onClose={() => setThemeModalOpen(false)} />
       <GlobalMenuModal visible={menuModalOpen} onClose={() => setMenuModalOpen(false)} />
     </ErrorBoundary>

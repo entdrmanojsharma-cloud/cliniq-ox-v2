@@ -18,6 +18,7 @@ export function EstimateDetailScreen({ route, navigation }) {
   }, [estimates, id]);
 
   const role = useAuthStore(state => state.role);
+  const canApprove = ['DOCTOR', 'ADMIN', 'SUPER_ADMIN'].includes(role);
 
   const [remarksModalVisible, setRemarksModalVisible] = useState(false);
   const [pendingStatus, setPendingStatus] = useState('');
@@ -157,8 +158,8 @@ export function EstimateDetailScreen({ route, navigation }) {
         ) : null}
       </View>
       <View style={styles.buttonGrid}>
-        {/* Doctor approval actions */}
-        {(est.status === 'DRAFT' || est.status === 'PENDING_APPROVAL' || est.status === 'REJECTED') && role === 'DOCTOR' && (
+        {/* Doctor and Admin approval actions */}
+        {(est.status === 'DRAFT' || est.status === 'PENDING_APPROVAL' || est.status === 'REJECTED') && canApprove && (
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity 
               style={[styles.actionButton, { flex: 1, backgroundColor: theme.colors.success }]} 
@@ -176,7 +177,7 @@ export function EstimateDetailScreen({ route, navigation }) {
         )}
 
         {/* Non-doctor Submit for Approval flow */}
-        {(est.status === 'DRAFT' || est.status === 'REJECTED') && role !== 'DOCTOR' && (
+        {(est.status === 'DRAFT' || est.status === 'REJECTED') && !canApprove && (
           <TouchableOpacity 
             style={[styles.actionButton, { backgroundColor: theme.colors.primary }]} 
             onPress={() => handleStatusChange('PENDING_APPROVAL')}
@@ -185,7 +186,7 @@ export function EstimateDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         )}
 
-        {est.status === 'PENDING_APPROVAL' && role !== 'DOCTOR' && (
+        {est.status === 'PENDING_APPROVAL' && !canApprove && (
           <View style={styles.pendingBadge}>
             <Text style={styles.pendingText}>⏳ Pending Doctor Approval</Text>
           </View>
@@ -197,7 +198,7 @@ export function EstimateDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         )}
         
-        {est.status === 'LOCKED' && (role === 'DOCTOR' || role === 'ADMIN') && (
+        {est.status === 'LOCKED' && canApprove && (
           <TouchableOpacity style={[styles.actionButton, { backgroundColor: theme.colors.warning }]} onPress={() => handleStatusChange('APPROVED')}>
             <Text style={[styles.buttonText, { color: '#000000' }]}>🔓 Unlock Revision</Text>
           </TouchableOpacity>

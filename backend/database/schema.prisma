@@ -48,6 +48,7 @@ enum EventStatus {
   APPROVED
   CANCELLED
   COMPLETED
+  POSTPONED
 }
 
 enum UnitType {

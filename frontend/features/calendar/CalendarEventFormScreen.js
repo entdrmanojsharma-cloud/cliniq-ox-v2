@@ -3,7 +3,7 @@
   Responsibility: Collect details, auto-calculate end-times, validate parameters, and query conflicts.
 */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useCalendarStore } from './store';
 import { usePatientsStore } from '../patients/store';
@@ -15,6 +15,7 @@ import { DateDropdown } from '../../shared/components/DateDropdown';
 import { TimeDropdown } from '../../shared/components/TimeDropdown';
 import { SearchableDropdown } from '../../shared/components/SearchableDropdown';
 import { theme } from '../../shared/styles/theme';
+import { api } from '../../shared/utils/api';
 
 const getInitialDate = (isoString) => {
   if (!isoString) return '';
@@ -82,7 +83,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
   const { otRooms, fetchOtRooms, diagnosisMasters, fetchDiagnosisMasters } = useMasterDataStore();
   const { surgeries, fetchSurgeries } = useSurgeriesStore();
 
-  const [categorySelected, setCategorySelected] = useState(!!id);
+  const [categorySelected, setCategorySelected] = useState(false);
   const [eventType, setEventType] = useState(existing.eventType || '');
   const [title, setTitle] = useState(existing.title || '');
 
@@ -110,6 +111,11 @@ export function CalendarEventFormScreen({ route, navigation }) {
   const [patientSearch, setPatientSearch] = useState('');
   const [doctorSearch, setDoctorSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(!!id);
+  const [fetchedPatient, setFetchedPatient] = useState(null);
+  const [fetchedDoctor, setFetchedDoctor] = useState(null);
+  const [fetchedAssistant, setFetchedAssistant] = useState(null);
+  const allowNavigationRef = useRef(false);
   // Open states for SearchableDropdown are managed internally inside that component
 
   useEffect(() => {
@@ -118,10 +124,63 @@ export function CalendarEventFormScreen({ route, navigation }) {
     fetchOtRooms();
     fetchSurgeries();
     fetchDiagnosisMasters();
-  }, []);
+    
+    if (id) {
+      api.get(`/calendar/${id}`).then(data => {
+        if (new Date(data.startTime) < new Date()) {
+          Alert.alert('Historical Record', 'This is a past event and cannot be edited. It has been locked for historical recordkeeping.');
+          navigation.goBack();
+          return;
+        }
 
-  const handleSelectCategory = (cat) => {
-    setEventType(cat === 'Routine Event' ? 'OPD' : cat === 'Rounds' ? 'IPD' : cat.toUpperCase());
+        setEventType(data.eventType || '');
+        setTitle(data.title || '');
+        if (data.startTime) {
+          setStartDate(getInitialDate(data.startTime));
+          setStartTimeVal(getInitialTime(data.startTime));
+        }
+        if (data.endTime) setEndTimeVal(getInitialTime(data.endTime));
+        if (data.durationMinutes) setDurationMinutes(String(data.durationMinutes));
+        
+        const rConf = parseRecurrence(data.recurrenceRule, data.startTime);
+        setRepeatEvent(rConf.enabled);
+        setSelectedDays(rConf.days);
+        setRepeatUntil(rConf.untilOption);
+        
+        if (data.patientId) {
+          setPatientId(data.patientId);
+          if (data.patient) setFetchedPatient(data.patient);
+        }
+        if (data.doctorId) {
+          setDoctorId(data.doctorId);
+          if (data.doctor) setFetchedDoctor(data.doctor);
+        }
+        if (data.assistantSurgeonId) {
+          setAssistantSurgeonId(data.assistantSurgeonId);
+          if (data.assistantSurgeon) setFetchedAssistant(data.assistantSurgeon);
+        }
+        if (data.location) setLocation(data.location);
+        if (data.diagnoses) setSelectedDiagnoses(data.diagnoses);
+      }).catch(err => {
+        Alert.alert('Error', 'Failed to load event details: ' + err.message);
+      }).finally(() => {
+        setInitialLoading(false);
+      });
+    }
+  }, [id]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (categorySelected && !id && !allowNavigationRef.current) {
+        e.preventDefault();
+        setCategorySelected(false);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, categorySelected, id]);
+
+  const handleSelectCategory = (type) => {
+    setEventType(type);
     setCategorySelected(true);
   };
 
@@ -166,6 +225,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
 
   // Core save logic — separated so we can call it twice (once normal, once forceCreate)
   const doSave = async (forceCreate = false) => {
+    if (saving) return; // Prevent double taps or concurrent saves
     if (!startDate.trim() || !startTimeVal.trim()) {
       return Alert.alert('Validation Error', 'Start date and time are required.');
     }
@@ -194,6 +254,11 @@ export function CalendarEventFormScreen({ route, navigation }) {
     }
 
     if (!eventTitle) return Alert.alert('Validation Error', 'Title is required.');
+
+    const startDt = new Date(startTimeCombined);
+    if (!id && startDt < new Date()) {
+      return Alert.alert('Validation Error', 'Cannot create an event in the past. Please select a future date and time.');
+    }
 
     let computedRecurrenceRule = null;
     if (repeatEvent) {
@@ -233,7 +298,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
         assistantManualName: assistantManualName || null,  // free-text fallback
         location: location || null,
         recurrenceRule: computedRecurrenceRule,
-        forceCreate: forceCreate || undefined,  // skip conflict check when true
+        forceCreate: forceCreate === true,  // skip conflict check when true
         diagnoses: selectedDiagnoses
       };
       
@@ -242,6 +307,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
 
       if (id) {
         await updateEvent(id, payload);
+        allowNavigationRef.current = true;
         navigation.goBack();
       } else {
         const res = await createEvent(payload);
@@ -253,6 +319,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
               {
                 text: 'Create Surgery Estimate',
                 onPress: () => {
+                  allowNavigationRef.current = true;
                   if (res && res.id) {
                     navigation.replace('EstimateForm', { id: null, eventId: res.id });
                   } else {
@@ -263,6 +330,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
               {
                 text: 'Go to Dashboard',
                 onPress: () => {
+                  allowNavigationRef.current = true;
                   navigation.goBack();
                 },
                 style: 'cancel'
@@ -271,6 +339,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
             { cancelable: false }
           );
         } else {
+          allowNavigationRef.current = true;
           navigation.goBack();
         }
       }
@@ -296,30 +365,67 @@ export function CalendarEventFormScreen({ route, navigation }) {
 
   const handleSave = () => doSave(false);
 
+  if (initialLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   if (!categorySelected) {
     return (
       <View style={styles.container}>
         <Text style={theme.typography.title}>Schedule New Event</Text>
         <Text style={styles.subtitle}>Select category of the event to begin</Text>
-        <View style={styles.grid}>
-          {['Surgery', 'Routine Event', 'Rounds', 'Meeting', 'Other'].map(cat => (
-            <TouchableOpacity key={cat} style={styles.tile} onPress={() => handleSelectCategory(cat)}>
-              <Text style={styles.tileText}>{cat}</Text>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
+          {/* Routine Column */}
+          <View style={{ flex: 1, gap: 12 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#ef4444', textAlign: 'center', marginBottom: 4 }}>Routine</Text>
+            <TouchableOpacity style={styles.catTile} onPress={() => handleSelectCategory('OPD')}>
+              <Text style={styles.tileText}>OPD</Text>
             </TouchableOpacity>
-          ))}
+            <TouchableOpacity style={styles.catTile} onPress={() => handleSelectCategory('IPD')}>
+              <Text style={styles.tileText}>Round</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.catTile} onPress={() => handleSelectCategory('OTHER')}>
+              <Text style={styles.tileText}>Other</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Surgery Column */}
+          <View style={{ flex: 1, gap: 12 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#10b981', textAlign: 'center', marginBottom: 4 }}>Surgery</Text>
+            <TouchableOpacity style={[styles.catTile, { flex: 1 }]} onPress={() => handleSelectCategory('SURGERY')}>
+              <Text style={styles.tileText}>Surgery</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Special Column */}
+          <View style={{ flex: 1, gap: 12 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#f97316', textAlign: 'center', marginBottom: 4 }}>Special</Text>
+            <TouchableOpacity style={styles.catTile} onPress={() => handleSelectCategory('MEETING')}>
+              <Text style={styles.tileText}>Meeting</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.catTile} onPress={() => handleSelectCategory('CME')}>
+              <Text style={styles.tileText}>CME</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.catTile} onPress={() => handleSelectCategory('OTHER')}>
+              <Text style={styles.tileText}>Other</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
   }
 
-  const selectedPatient = patients.find(p => p.id === patientId);
+  const selectedPatient = (fetchedPatient?.id === patientId ? fetchedPatient : null) || patients.find(p => p.id === patientId);
   const selectedDoctor = doctorManualName
     ? { _manualEntry: true, displayName: doctorManualName }
-    : doctors.find(d => d.id === doctorId) || null;
+    : ((fetchedDoctor?.id === doctorId ? fetchedDoctor : null) || doctors.find(d => d.id === doctorId) || null);
   const selectedAssistant = assistantManualName
     ? { _manualEntry: true, displayName: assistantManualName }
-    : doctors.find(d => d.id === assistantSurgeonId) || null;
+    : ((fetchedAssistant?.id === assistantSurgeonId ? fetchedAssistant : null) || doctors.find(d => d.id === assistantSurgeonId) || null);
 
   // Only show dropdown list when user is actively typing (non-empty search)
   const filteredPatients = patientSearch.trim()
@@ -344,55 +450,28 @@ export function CalendarEventFormScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
-      <Text style={theme.typography.title}>{id ? 'Edit Event' : `New ${eventType}`}</Text>
+      <Text style={theme.typography.title}>
+        {eventType === 'SURGERY' 
+          ? (selectedPatient ? selectedPatient.name : 'Select Patient') 
+          : (id ? 'Edit Event' : `New ${eventType}`)
+        }
+      </Text>
       
       <View style={styles.form}>
         {eventType !== 'SURGERY' && (
-          <>
-            <Text style={styles.label}>Title *</Text>
-            <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Meeting or Routine Title" placeholderTextColor={theme.colors.textMuted} />
-          </>
+          <TextInput style={[styles.input, { marginTop: 0 }]} value={title} onChangeText={setTitle} placeholder="Meeting or Routine Title *" placeholderTextColor={theme.colors.textMuted} />
         )}
 
-        <Text style={styles.label}>Start Date & Time *</Text>
-          <View style={styles.pickerRow}>
-            <View style={{ flex: 1, marginRight: 4 }}>
-              <DateDropdown value={startDate} onChange={setStartDate} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 4 }}>
-              <TimeDropdown value={startTimeVal} onChange={updateStartTime} />
-            </View>
-          </View>
-
-        <View style={styles.row}>
-          <View style={{ flex: 1, marginRight: 6 }}>
-            <Text style={styles.label}>Duration (min)</Text>
-            <TextInput style={styles.input} value={durationMinutes} onChangeText={updateDuration} keyboardType="numeric" placeholder="60" placeholderTextColor={theme.colors.textMuted} />
-          </View>
-          <View style={{ flex: 1, marginLeft: 6 }}>
-            <Text style={styles.label}>End Time (Optional)</Text>
-            <TimeDropdown value={endTimeVal} onChange={updateEndTime} />
-          </View>
-        </View>
-
-        {eventType === 'SURGERY' ? (
+        {eventType === 'SURGERY' && (
           <>
             {/* ─── Patient Search Dropdown ─── */}
-            <Text style={styles.label}>Patient *</Text>
-            {selectedPatient ? (
-              <View style={styles.selectedChip}>
-                <Text style={styles.selectedChipText}>👤 {selectedPatient.name} ({selectedPatient.uhid})</Text>
-                <TouchableOpacity onPress={() => { setPatientId(''); setPatientSearch(''); }} style={styles.chipClearBtn}>
-                  <Text style={styles.chipClearText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
+            {!selectedPatient && (
               <>
                 <TextInput
                   style={styles.input}
                   value={patientSearch}
                   onChangeText={setPatientSearch}
-                  placeholder="Type name, UHID or mobile to search..."
+                  placeholder="Type patient name, UHID or mobile..."
                   placeholderTextColor={theme.colors.textMuted}
                 />
                 {filteredPatients.length > 0 && (
@@ -410,9 +489,15 @@ export function CalendarEventFormScreen({ route, navigation }) {
                 )}
               </>
             )}
+            
+            {selectedPatient && (
+              <View style={styles.selectedChip}>
+                <Text style={styles.selectedChipText}>👤 {selectedPatient.name} ({selectedPatient.uhid})</Text>
+              </View>
+            )}
 
             {/* ─── Surgeon Combobox Dropdown ─── */}
-            <Text style={styles.label}>Surgeon</Text>
+            <Text style={styles.label}>Surgeon 1</Text>
             <SearchableDropdown
               items={doctors}
               value={selectedDoctor}
@@ -430,7 +515,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
             />
 
             {/* ─── Assistant Surgeon Combobox Dropdown ─── */}
-            <Text style={styles.label}>Assistant Surgeon (Optional)</Text>
+            <Text style={styles.label}>Surgeon 2</Text>
             <SearchableDropdown
               items={doctors}
               value={selectedAssistant}
@@ -439,102 +524,43 @@ export function CalendarEventFormScreen({ route, navigation }) {
                 else if (d._manualEntry) { setAssistantSurgeonId(''); setAssistantManualName(d.displayName); }
                 else { setAssistantSurgeonId(d.id); setAssistantManualName(''); }
               }}
-              placeholder="Tap to browse assistant surgeons ▼"
+              placeholder="Tap to browse surgeons ▼"
               keyExtractor={d => d._manualEntry ? '__manual_asst__' : d.id}
               renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
               renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
               filterFn={(d, q) => d._manualEntry ? d.displayName.toLowerCase().includes(q.toLowerCase()) : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())}
-              manualEntryLabel="Not in list? Type assistant name manually"
+              manualEntryLabel="Not in list? Type surgeon name manually"
             />
+          </>
+        )}
 
-            {/* ─── Diagnoses (Optional) ─── */}
-            <Text style={styles.label}>Diagnoses (Optional)</Text>
-            
-            {/* Selected Diagnosis Chips */}
-            {selectedDiagnoses.length > 0 && (
-              <View style={styles.chipContainer}>
-                {selectedDiagnoses.map((diag, index) => (
-                  <View key={index} style={styles.diagnosisChip}>
-                    <Text style={styles.diagnosisChipText}>{diag}</Text>
-                    <TouchableOpacity 
-                      onPress={() => setSelectedDiagnoses(selectedDiagnoses.filter(d => d !== diag))} 
-                      style={styles.diagnosisChipDelete}
-                    >
-                      <Text style={styles.diagnosisChipDeleteText}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
+        <Text style={styles.label}>{eventType === 'SURGERY' ? 'Surgery Date *' : 'Start Date *'}</Text>
+        <DateDropdown value={startDate} onChange={setStartDate} />
 
-            <SearchableDropdown
-              items={diagnosisMasters}
-              value={null}
-              onSelect={(d) => {
-                if (d && d.diagnosisName) {
-                  if (!selectedDiagnoses.includes(d.diagnosisName)) {
-                    setSelectedDiagnoses([...selectedDiagnoses, d.diagnosisName]);
-                  }
-                }
-              }}
-              placeholder="Search & add diagnosis ▼"
-              keyExtractor={d => d.id || d.diagnosisName}
-              renderItem={d => `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
-              renderSelected={d => `${d.diagnosisName} (${d.icdCode || 'N/A'})`}
-              filterFn={(d, q) => `${d.diagnosisName} ${d.icdCode || ''}`.toLowerCase().includes(q.toLowerCase())}
-            />
+        <Text style={[styles.label, { marginTop: 12 }]}>{eventType === 'SURGERY' ? 'Surgery (time Expected) *' : 'Start Time *'}</Text>
+        <TimeDropdown value={startTimeVal} onChange={updateStartTime} defaultMin="00" />
 
-            {/* Add Custom Diagnosis input */}
-            <View style={styles.customDiagRow}>
-              <TextInput
-                style={[styles.input, { flex: 1, marginVertical: 0 }]}
-                placeholder="Or type custom diagnosis..."
-                placeholderTextColor={theme.colors.textMuted}
-                value={customDiagText}
-                onChangeText={setCustomDiagText}
-              />
-              <TouchableOpacity 
-                style={styles.customDiagAddBtn} 
-                onPress={() => {
-                  const txt = customDiagText.trim();
-                  if (txt) {
-                    if (!selectedDiagnoses.includes(txt)) {
-                      setSelectedDiagnoses([...selectedDiagnoses, txt]);
-                    }
-                    setCustomDiagText('');
-                  }
-                }}
-              >
-                <Text style={styles.customDiagAddBtnText}>+ Add</Text>
-              </TouchableOpacity>
-            </View>
+        <View style={styles.row}>
+          <View style={{ flex: 0.35, marginRight: 6 }}>
+            <Text style={styles.label}>Duration (min)</Text>
+            <TextInput style={styles.input} value={durationMinutes} onChangeText={updateDuration} keyboardType="numeric" placeholder="60" placeholderTextColor={theme.colors.textMuted} />
+          </View>
+          <View style={{ flex: 0.65, marginLeft: 6 }}>
+            <Text style={styles.label}>End Time (Optional)</Text>
+            <TimeDropdown value={endTimeVal} onChange={updateEndTime} />
+          </View>
+        </View>
+
+        {eventType === 'SURGERY' ? (
+          <>
+            {/* Surgery ends here - no diagnoses or location needed */}
           </>
         ) : (
           <>
             <Text style={styles.label}>Location / Place</Text>
             <TextInput style={styles.input} value={location} onChangeText={setLocation} placeholder="OPD Room 3, Conf Room etc." placeholderTextColor={theme.colors.textMuted} />
 
-            {/* Optional Doctor selection for non-surgery events */}
-            {doctors.length > 0 && (
-              <>
-                <Text style={styles.label}>Assigned Doctor (Optional)</Text>
-                <SearchableDropdown
-                  items={doctors}
-                  value={selectedDoctor}
-                  onSelect={(d) => {
-                    if (!d) { setDoctorId(''); setDoctorManualName(''); }
-                    else if (d._manualEntry) { setDoctorId(''); setDoctorManualName(d.displayName); }
-                    else { setDoctorId(d.id); setDoctorManualName(''); }
-                  }}
-                  placeholder="Tap to browse doctors ▼"
-                  keyExtractor={d => d._manualEntry ? '__manual__' : d.id}
-                  renderItem={d => d._manualEntry ? d.displayName : `Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-                  renderSelected={d => d._manualEntry ? `✏️ ${d.displayName}` : `🩺 Dr. ${d.firstName} ${d.lastName} (${d.specialty || ''})`}
-                  filterFn={(d, q) => d._manualEntry ? d.displayName.toLowerCase().includes(q.toLowerCase()) : `${d.firstName} ${d.lastName} ${d.specialty || ''}`.toLowerCase().includes(q.toLowerCase())}
-                  manualEntryLabel="Not in list? Type doctor name manually"
-                />
-              </>
-            )}
+
 
             <Text style={styles.label}>Repeat Options</Text>
             <View style={styles.toggleRow}>
@@ -615,7 +641,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing.md },
   subtitle: { color: theme.colors.textMuted, fontSize: 14, marginBottom: theme.spacing.lg },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
-  tile: { width: '47%', backgroundColor: theme.colors.surface, padding: 24, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
+  catTile: { backgroundColor: theme.colors.surface, paddingVertical: 20, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
   tileText: { color: theme.colors.text, fontWeight: '700', fontSize: 14 },
   form: { marginVertical: theme.spacing.md },
   label: { color: theme.colors.text, marginTop: theme.spacing.sm, marginBottom: 4, fontWeight: '600' },

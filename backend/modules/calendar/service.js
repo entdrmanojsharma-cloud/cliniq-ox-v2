@@ -265,10 +265,11 @@ class CalendarService {
 
     // Validate workflow state machine transitions
     const validTransitions = {
-      PENDING: ['APPROVED', 'CANCELLED'],
-      APPROVED: ['COMPLETED', 'CANCELLED'],
+      PENDING: ['APPROVED', 'CANCELLED', 'POSTPONED'],
+      APPROVED: ['COMPLETED', 'CANCELLED', 'POSTPONED'],
       CANCELLED: [],
-      COMPLETED: []
+      COMPLETED: [],
+      POSTPONED: []
     };
 
     if (!validTransitions[existing.eventStatus].includes(status)) {
@@ -315,6 +316,86 @@ class CalendarService {
     });
 
     return updated;
+  }
+
+  async postponeEvent(id, hospitalId, data, userContext) {
+    const existing = await this.getEventById(id, hospitalId);
+
+    if (existing.eventStatus === 'COMPLETED' || existing.eventStatus === 'CANCELLED' || existing.eventStatus === 'POSTPONED') {
+      const err = new Error(`Cannot postpone an event that is already ${existing.eventStatus}.`);
+      err.status = 400;
+      err.code = 'ERR_INVALID_STATUS_TRANSITION';
+      throw err;
+    }
+
+    if (!data.startTime || !data.endTime) {
+      const err = new Error(`startTime and endTime are required to postpone an event.`);
+      err.status = 400;
+      err.code = 'ERR_MISSING_DATETIME';
+      throw err;
+    }
+
+    // Use transaction to ensure both status update and new event creation succeed
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1. Mark existing event as POSTPONED and append to description
+      const originalDesc = existing.description || '';
+      const postponedMsg = `\n\n[Postponed to: ${new Date(data.startTime).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}]`;
+      const newDesc = originalDesc + postponedMsg;
+
+      const updatedOriginal = await tx.calendarEvent.update({
+        where: { id_hospitalId: { id, hospitalId } },
+        data: { 
+          eventStatus: 'POSTPONED',
+          description: newDesc.trim()
+        }
+      });
+
+      // 2. Create the new event
+      const newEvent = await tx.calendarEvent.create({
+        data: {
+          hospitalId,
+          eventType: existing.eventType,
+          eventStatus: existing.eventStatus === 'APPROVED' ? 'APPROVED' : 'PENDING',
+          priority: existing.priority,
+          title: existing.title,
+          startTime: new Date(data.startTime),
+          endTime: new Date(data.endTime),
+          durationMinutes: Math.round((new Date(data.endTime) - new Date(data.startTime)) / 60000),
+          doctorId: existing.doctorId,
+          assistantSurgeonId: existing.assistantSurgeonId,
+          otRoomId: existing.otRoomId,
+          patientId: existing.patientId,
+          surgeryId: existing.surgeryId,
+          location: existing.location,
+          description: existing.description,
+          surgeryCost: existing.surgeryCost,
+          // Duplicate diagnoses
+          diagnoses: {
+            create: existing.diagnoses.map(d => ({
+              diagnosisId: d.diagnosisId,
+              notes: d.notes,
+              hospitalId
+            }))
+          }
+        },
+        include: { doctor: true, patient: true, otRoom: true, diagnoses: { include: { diagnosis: true } } }
+      });
+
+      return { original: updatedOriginal, newEvent };
+    });
+
+    await writeAuditLog(this.prisma, {
+      hospitalId,
+      userId: userContext.userId,
+      userName: userContext.email,
+      role: userContext.role,
+      action: 'POSTPONE_CALENDAR_EVENT',
+      targetTable: 'calendar_events',
+      targetId: id,
+      payload: { previous: existing, newEventId: result.newEvent.id, newStartTime: data.startTime }
+    });
+
+    return result.newEvent;
   }
 
   async softDeleteEvent(id, hospitalId, userContext) {

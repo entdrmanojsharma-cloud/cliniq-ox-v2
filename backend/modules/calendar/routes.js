@@ -44,6 +44,12 @@ function createCalendarRouter(controller, validator) {
   );
 
   router.patch(
+    '/:id/postpone',
+    authorizeRoles('RECEPTIONIST', 'DOCTOR', 'ADMIN'),
+    controller.postponeOne.bind(controller)
+  );
+
+  router.patch(
     '/:id/complete',
     authorizeRoles('RECEPTIONIST', 'DOCTOR', 'ADMIN'),
     controller.completeOne.bind(controller)

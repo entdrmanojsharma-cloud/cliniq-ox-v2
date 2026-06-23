@@ -3,9 +3,9 @@ import { View, StyleSheet } from 'react-native';
 import { Picker } from './Picker';
 import { theme } from '../styles/theme';
 
-export const TimeDropdown = ({ value, onChange }) => {
+export const TimeDropdown = ({ value, onChange, defaultMin }) => {
   const [hour, setHour] = useState('');
-  const [minute, setMinute] = useState('');
+  const [minute, setMinute] = useState(defaultMin || '');
   const [ampm, setAmpm] = useState('AM');
 
   useEffect(() => {

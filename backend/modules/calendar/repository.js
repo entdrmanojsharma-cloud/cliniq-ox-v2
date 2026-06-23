@@ -58,6 +58,13 @@ class CalendarRepository {
           },
           surgery: {
             select: { id: true, surgeryCode: true, surgeryName: true, category: true, defaultSurgeonFee: true }
+          },
+          estimate: {
+            include: {
+              estimateSurgeries: {
+                include: { surgery: true }
+              }
+            }
           }
         }
       }),
