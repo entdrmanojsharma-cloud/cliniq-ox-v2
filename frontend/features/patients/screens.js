@@ -4,7 +4,7 @@
 */
 
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, FlatList, ActivityIndicator, Alert, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Pressable, FlatList, ActivityIndicator, Alert, Platform } from 'react-native';
 import { usePatientsStore } from './store';
 import { useEstimatesStore } from '../estimates/store';
 import { api } from '../../shared/utils/api';
@@ -25,54 +25,114 @@ function SearchableDropdown({ label, items, selectedValue, onSelect, placeholder
   return (
     <View style={{ marginVertical: 4, zIndex: 10 }}>
       <Text style={dropdownStyles.label}>{label}</Text>
-      <TouchableOpacity
-        style={dropdownStyles.selector}
-        onPress={() => setShowDropdown(!showDropdown)}
-        activeOpacity={0.8}
-      >
-        <Text style={selectedItem ? dropdownStyles.selectedText : dropdownStyles.placeholderText}>
-          {selectedItem ? selectedItem.label : placeholder || 'Select...'}
-        </Text>
-        <Text style={dropdownStyles.arrow}>{showDropdown ? '▲' : '▼'}</Text>
-      </TouchableOpacity>
 
+      {/* Transparent overlay to close on outside click */}
       {showDropdown && (
-        <View style={dropdownStyles.dropdownContainer}>
-          <TextInput
-            style={dropdownStyles.searchInput}
-            placeholder="Search doctor..."
-            placeholderTextColor={theme.colors.textMuted}
-            value={searchText}
-            onChangeText={setSearchText}
-            autoFocus
-          />
-          <ScrollView style={dropdownStyles.optionsList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-            {/* None / Clear option */}
-            <TouchableOpacity
-              style={[dropdownStyles.option, !selectedValue && dropdownStyles.optionActive]}
-              onPress={() => { onSelect(null); setShowDropdown(false); setSearchText(''); }}
-            >
-              <Text style={[dropdownStyles.optionText, { fontStyle: 'italic', color: theme.colors.textMuted }]}>— None —</Text>
-            </TouchableOpacity>
-            {filtered.map(item => (
+        <Pressable
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }}
+          onPress={() => { setShowDropdown(false); setSearchText(''); }}
+        />
+      )}
+
+      <View style={{ zIndex: 11 }}>
+        <TouchableOpacity
+          style={dropdownStyles.selector}
+          onPress={() => setShowDropdown(!showDropdown)}
+          activeOpacity={0.8}
+        >
+          <Text style={selectedItem ? dropdownStyles.selectedText : dropdownStyles.placeholderText}>
+            {selectedItem ? selectedItem.label : placeholder || 'Select...'}
+          </Text>
+          <Text style={dropdownStyles.arrow}>{showDropdown ? '▲' : '▼'}</Text>
+        </TouchableOpacity>
+
+        {showDropdown && (
+          <View style={[dropdownStyles.dropdownContainer, { position: 'absolute', top: 46, left: 0, right: 0, zIndex: 999 }]}>
+            <TextInput
+              style={dropdownStyles.searchInput}
+              placeholder="Search doctor..."
+              placeholderTextColor={theme.colors.textMuted}
+              value={searchText}
+              onChangeText={setSearchText}
+              autoFocus
+            />
+            <ScrollView style={dropdownStyles.optionsList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+              {/* None / Clear option */}
               <TouchableOpacity
-                key={item.value}
-                style={[dropdownStyles.option, selectedValue === item.value && dropdownStyles.optionActive]}
-                onPress={() => { onSelect(item.value); setShowDropdown(false); setSearchText(''); }}
+                style={[dropdownStyles.option, !selectedValue && dropdownStyles.optionActive]}
+                onPress={() => { onSelect(null); setShowDropdown(false); setSearchText(''); }}
               >
-                <Text style={[dropdownStyles.optionText, selectedValue === item.value && dropdownStyles.optionTextActive]}>
-                  {item.label}
+                <Text style={[dropdownStyles.optionText, { fontStyle: 'italic', color: theme.colors.textMuted }]}>— None —</Text>
+              </TouchableOpacity>
+              {filtered.map(item => (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[dropdownStyles.option, selectedValue === item.value && dropdownStyles.optionActive]}
+                  onPress={() => { onSelect(item.value); setShowDropdown(false); setSearchText(''); }}
+                >
+                  <Text style={[dropdownStyles.optionText, selectedValue === item.value && dropdownStyles.optionTextActive]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              {filtered.length === 0 && (
+                <View style={dropdownStyles.option}>
+                  <Text style={[dropdownStyles.optionText, { color: theme.colors.textMuted }]}>No doctors found</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// Simple gender dropdown
+function GenderDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const options = [
+    { label: 'Male', value: 'MALE' },
+    { label: 'Female', value: 'FEMALE' },
+    { label: 'Other', value: 'OTHER' },
+  ];
+  const selected = options.find(o => o.value === value);
+  return (
+    <View style={{ zIndex: 20, width: 130 }}>
+      {/* Transparent overlay to close on outside click */}
+      {open && (
+        <Pressable
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 19 }}
+          onPress={() => setOpen(false)}
+        />
+      )}
+      <View style={{ zIndex: 21 }}>
+        <TouchableOpacity
+          style={[dropdownStyles.selector, { minHeight: 36, padding: 8 }]}
+          onPress={() => setOpen(!open)}
+          activeOpacity={0.8}
+        >
+          <Text style={selected ? dropdownStyles.selectedText : dropdownStyles.placeholderText}>
+            {selected ? selected.label : 'Gender'}
+          </Text>
+          <Text style={dropdownStyles.arrow}>{open ? '▲' : '▼'}</Text>
+        </TouchableOpacity>
+        {open && (
+          <View style={[dropdownStyles.dropdownContainer, { position: 'absolute', top: 40, left: 0, width: 130, maxHeight: 150, zIndex: 999 }]}>
+            {options.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[dropdownStyles.option, value === opt.value && dropdownStyles.optionActive]}
+                onPress={() => { onChange(opt.value); setOpen(false); }}
+              >
+                <Text style={[dropdownStyles.optionText, value === opt.value && dropdownStyles.optionTextActive]}>
+                  {opt.label}
                 </Text>
               </TouchableOpacity>
             ))}
-            {filtered.length === 0 && (
-              <View style={dropdownStyles.option}>
-                <Text style={[dropdownStyles.optionText, { color: theme.colors.textMuted }]}>No doctors found</Text>
-              </View>
-            )}
-          </ScrollView>
-        </View>
-      )}
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -652,57 +712,56 @@ export function PatientFormScreen({ route, navigation }) {
       
       <View style={styles.form}>
         
-        {/* Name Fields Row */}
-        <View style={styles.formRow}>
-          <View style={styles.formCol}>
-            <Text style={styles.label}>First Name *</Text>
-            <TextInput 
-              style={styles.input} 
-              value={firstName} 
-              onChangeText={setFirstName} 
-              placeholder="e.g. Rahul" 
-              placeholderTextColor={theme.colors.textMuted} 
-            />
-          </View>
-          <View style={styles.formCol}>
-            <Text style={styles.label}>Last Name *</Text>
-            <TextInput 
-              style={styles.input} 
-              value={lastName} 
-              onChangeText={setLastName} 
-              placeholder="e.g. Gupta" 
-              placeholderTextColor={theme.colors.textMuted} 
-            />
-          </View>
-        </View>
-
-        {/* Gender field */}
-        <Text style={styles.label}>Gender *</Text>
-        <View style={styles.toggleRow}>
-          {['MALE', 'FEMALE', 'OTHER'].map(g => (
-            <TouchableOpacity 
-              key={g} 
-              style={[styles.toggleButton, gender === g && styles.toggleButtonActive]} 
-              onPress={() => setGender(g)}
-            >
-              <Text style={[styles.toggleText, gender === g && { color: '#ffffff', fontWeight: '800' }]}>{g}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Mobile number */}
-        <Text style={styles.label}>Mobile Number *</Text>
-        <TextInput 
-          style={styles.input} 
-          value={mobile} 
-          onChangeText={(val) => setMobile(val.replace(/\D/g, '').slice(0, 15))} 
-          keyboardType="phone-pad" 
-          placeholder="e.g. 9876543210" 
-          placeholderTextColor={theme.colors.textMuted} 
+        {/* First Name - full row, no label */}
+        <TextInput
+          style={styles.input}
+          value={firstName}
+          onChangeText={setFirstName}
+          placeholder="First Name"
+          placeholderTextColor={theme.colors.textMuted}
         />
 
+        {/* Last Name - full row, no label */}
+        <TextInput
+          style={styles.input}
+          value={lastName}
+          onChangeText={setLastName}
+          placeholder="Last Name"
+          placeholderTextColor={theme.colors.textMuted}
+        />
+
+        {/* Gender + Mobile in same row */}
+        <View style={[styles.formRow, { zIndex: 100 }]}>
+          <View style={{ width: 130 }}>
+            <Text style={styles.label}>Gender *</Text>
+            <GenderDropdown value={gender} onChange={setGender} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>Mobile Number *</Text>
+            <TextInput
+              style={styles.input}
+              value={mobile}
+              onChangeText={(val) => setMobile(val.replace(/\D/g, '').slice(0, 15))}
+              keyboardType="phone-pad"
+              placeholder="e.g. 9876543210"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+          </View>
+        </View>
+
+        {/* Consulting Doctor Searchable Dropdown */}
+        <View style={{ zIndex: 50 }}>
+          <SearchableDropdown
+            label="Consulting Doctor"
+            items={doctorsList}
+            selectedValue={consultingDoctorId}
+            onSelect={setConsultingDoctorId}
+            placeholder="Select Consulting Doctor..."
+          />
+        </View>
+
         {/* Date of Birth Picker */}
-        <View style={{ marginVertical: 8 }}>
+        <View style={{ marginVertical: 4 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={styles.label}>Date of Birth *</Text>
             {calculatedAge ? (
@@ -714,19 +773,20 @@ export function PatientFormScreen({ route, navigation }) {
 
         {/* PMJAY scheme toggle */}
         <Text style={styles.label}>PMJAY Scheme Patient? *</Text>
-        <View style={styles.toggleRow}>
+        <View style={{ flexDirection: 'row', gap: 6, marginVertical: 4 }}>
           {[
             { key: false, label: 'No' },
             { key: true, label: 'Yes' }
           ].map(opt => (
             <TouchableOpacity
               key={opt.label}
-              style={[styles.toggleButton, isPmjay === opt.key && styles.toggleButtonActive]}
+              style={[styles.toggleButton, { flex: 1, paddingVertical: 7, minHeight: 34 }, isPmjay === opt.key && styles.toggleButtonActive]}
               onPress={() => setIsPmjay(opt.key)}
             >
               <Text style={[styles.toggleText, isPmjay === opt.key && { color: '#ffffff', fontWeight: '800' }]}>{opt.label}</Text>
             </TouchableOpacity>
           ))}
+          <View style={{ flex: 2 }} />
         </View>
 
         {/* Dynamic PMJAY Fields */}
@@ -761,43 +821,15 @@ export function PatientFormScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Extra EMR Details */}
-        <Text style={styles.label}>Referring Doctor</Text>
-        <TextInput 
-          style={styles.input} 
-          value={referringDoctor} 
-          onChangeText={setReferringDoctor} 
-          placeholder="Dr. Sharma" 
-          placeholderTextColor={theme.colors.textMuted} 
-        />
-
-        {/* Consulting Doctor Searchable Dropdown */}
-        <SearchableDropdown
-          label="Consulting Doctor"
-          items={doctorsList}
-          selectedValue={consultingDoctorId}
-          onSelect={setConsultingDoctorId}
-          placeholder="Select Consulting Doctor..."
-        />
-
-        <Text style={styles.label}>Home Address</Text>
-        <TextInput 
-          style={[styles.input, { minHeight: 60 }]} 
-          value={address} 
-          onChangeText={setAddress} 
-          multiline 
-          placeholder="Enter address..." 
-          placeholderTextColor={theme.colors.textMuted} 
-        />
-
-        <Text style={styles.label}>Notes</Text>
-        <TextInput 
-          style={[styles.input, { minHeight: 60 }]} 
-          value={notes} 
-          onChangeText={setNotes} 
-          multiline 
-          placeholder="Clinical remarks..." 
-          placeholderTextColor={theme.colors.textMuted} 
+        {/* Address (replaces Referring Doctor) */}
+        <Text style={styles.label}>Address</Text>
+        <TextInput
+          style={[styles.input, { minHeight: 60 }]}
+          value={address}
+          onChangeText={setAddress}
+          multiline
+          placeholder="Enter patient address..."
+          placeholderTextColor={theme.colors.textMuted}
         />
 
         {saving ? (
