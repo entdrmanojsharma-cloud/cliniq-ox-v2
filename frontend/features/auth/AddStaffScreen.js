@@ -13,6 +13,7 @@ import { theme } from '../../shared/styles/theme';
 import { api } from '../../shared/utils/api';
 import { useSettingsStore } from '../settings/store';
 import { SearchableDropdown } from '../../shared/components/SearchableDropdown';
+import { Picker } from '../../shared/components/Picker';
 
 export function AddStaffScreen({ navigation }) {
   const { role: currentUserRole } = useAuthStore();
@@ -334,20 +335,23 @@ export function AddStaffScreen({ navigation }) {
               />
 
               <Text style={styles.label}>Staff Type *</Text>
-              <View style={styles.pickerWrapper}>
-                <SearchableDropdown
-                  items={['Doctor', 'Anesthetist', 'Surgeon', 'Visiting Consultant', 'Receptionist', 'Nurse', 'Technician', 'Admin', 'Other'].map(v => ({ id: v, name: v }))}
-                  value={staffType ? { id: staffType, name: staffType } : null}
-                  onSelect={(item) => {
-                    setStaffType(item ? item.id : '');
-                  }}
-                  placeholder="Select Staff Type ▼"
-                  keyExtractor={item => item.id}
-                  renderItem={item => item.name}
-                  renderSelected={item => item.name}
-                  filterFn={(item, q) => item.name.toLowerCase().includes(q.toLowerCase())}
-                />
-              </View>
+              <Picker
+                selectedValue={staffType}
+                onValueChange={(val) => setStaffType(val)}
+                placeholder="Select Staff Type..."
+                style={{ marginHorizontal: 0 }}
+              >
+                <Picker.Item label="Select Staff Type..." value="" />
+                <Picker.Item label="Doctor" value="Doctor" />
+                <Picker.Item label="Anesthetist" value="Anesthetist" />
+                <Picker.Item label="Surgeon" value="Surgeon" />
+                <Picker.Item label="Visiting Consultant" value="Visiting Consultant" />
+                <Picker.Item label="Receptionist" value="Receptionist" />
+                <Picker.Item label="Nurse" value="Nurse" />
+                <Picker.Item label="Technician" value="Technician" />
+                <Picker.Item label="Admin" value="Admin" />
+                <Picker.Item label="Other" value="Other" />
+              </Picker>
 
               {['Doctor', 'Anesthetist', 'Surgeon', 'Visiting Consultant'].includes(staffType) && (
                 <View style={styles.doctorFieldsContainer}>
