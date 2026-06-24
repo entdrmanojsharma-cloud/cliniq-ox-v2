@@ -20,10 +20,11 @@ function renderEstimateTemplate(data) {
   <title>Estimate - ${data.estimateNumber || 'N/A'}</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       font-size: 11pt;
       line-height: 1.4;
-      color: #333;
+      color: #000000;
+      background-color: #ffffff;
       margin: 0;
       padding: 0;
     }
@@ -263,10 +264,11 @@ function renderEstimateTemplate(data) {
   <title>Estimate - ${data.estimateNumber || 'N/A'}</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       font-size: 11pt;
       line-height: 1.4;
-      color: #333;
+      color: #000000;
+      background-color: #ffffff;
       margin: 0;
       padding: 0;
     }
