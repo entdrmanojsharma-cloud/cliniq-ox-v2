@@ -109,7 +109,7 @@ export function CalendarEventDetailScreen({ route, navigation }) {
               ? `Surgery: ${event.surgery.surgeryName}` 
               : (event.estimate?.estimateSurgeries?.length > 0
                   ? `Surgery: ${event.estimate.estimateSurgeries.map(s => s.surgery?.surgeryName || s.surgeryName || 'Unspecified').join(', ')}`
-                  : (event.title.includes(event.patient?.name) ? `Surgery: Pending` : `Surgery: ${event.title}`)))
+                  : event.title))
           : event.title}
       </Text>
       
@@ -166,7 +166,13 @@ export function CalendarEventDetailScreen({ route, navigation }) {
 
         <View style={styles.row}>
           <Text style={styles.label}>Doctor</Text>
-          <Text style={styles.value}>{event.doctor ? `Dr. ${event.doctor.firstName} ${event.doctor.lastName}` : 'N/A'}</Text>
+          <Text style={styles.value}>
+            {event.doctor ? 
+              (`${event.doctor.firstName} ${event.doctor.lastName}`.trim().toLowerCase().startsWith('dr') ? 
+                `${event.doctor.firstName} ${event.doctor.lastName}` : 
+                `Dr. ${event.doctor.firstName} ${event.doctor.lastName}`) 
+              : 'N/A'}
+          </Text>
         </View>
 
         {(event.surgery || (event.estimate?.estimateSurgeries && event.estimate.estimateSurgeries.length > 0)) && (
