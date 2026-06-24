@@ -10,6 +10,8 @@ import { usePatientsStore } from '../patients/store';
 import { useDoctorsStore } from '../doctors/store';
 import { useMasterDataStore } from '../master-data/store';
 import { useSurgeriesStore } from '../surgeries/store';
+import { useAuthStore } from '../auth/store';
+import { SurgeryPicker } from '../estimates/components/SurgeryPicker';
 import { AlertModal } from '../../shared/components/AlertModal';
 import { DateDropdown } from '../../shared/components/DateDropdown';
 import { TimeDropdown } from '../../shared/components/TimeDropdown';
@@ -76,6 +78,8 @@ export function CalendarEventFormScreen({ route, navigation }) {
   const { events, createEvent, updateEvent, selectedDate: storeSelectedDate } = useCalendarStore();
   const existing = events.find(e => e.id === id) || {};
 
+  const { role } = useAuthStore();
+
   const { patients, fetchPatients } = usePatientsStore();
   const { doctors, fetchDoctors } = useDoctorsStore();
   const { otRooms, fetchOtRooms, diagnosisMasters, fetchDiagnosisMasters } = useMasterDataStore();
@@ -97,6 +101,8 @@ export function CalendarEventFormScreen({ route, navigation }) {
   const [repeatUntil, setRepeatUntil] = useState(recConfig.untilOption);
   
   const [patientId, setPatientId] = useState(existing.patientId || routePatientId || '');
+  const [surgeryId, setSurgeryId] = useState(existing.surgeryId || '');
+  const [fetchedSurgery, setFetchedSurgery] = useState(null);
   const [doctorId, setDoctorId] = useState(existing.doctorId || '');
   const [doctorManualName, setDoctorManualName] = useState(''); // free-text fallback
   const [assistantSurgeonId, setAssistantSurgeonId] = useState(existing.assistantSurgeonId || '');
@@ -159,6 +165,10 @@ export function CalendarEventFormScreen({ route, navigation }) {
         }
         if (data.location) setLocation(data.location);
         if (data.diagnoses) setSelectedDiagnoses(data.diagnoses);
+        if (data.surgeryId) {
+          setSurgeryId(data.surgeryId);
+          if (data.surgery) setFetchedSurgery(data.surgery);
+        }
       }).catch(err => {
         Alert.alert('Error', 'Failed to load event details: ' + err.message);
       }).finally(() => {
@@ -246,10 +256,12 @@ export function CalendarEventFormScreen({ route, navigation }) {
     let eventTitle = title.trim();
     if (eventType === 'SURGERY') {
       if (!patientId) return Alert.alert('Validation Error', 'Patient selection is mandatory for surgery.');
+      if (!surgeryId) return Alert.alert('Validation Error', 'Surgery selection is mandatory for surgery.');
       
-      const pat = patients.find(p => p.id === patientId);
-      if (!eventTitle && pat) {
-        eventTitle = `Surgery - ${pat.name}`;
+      const pat = patients.find(p => p.id === patientId) || fetchedPatient;
+      const surg = selectedSurgery;
+      if (!eventTitle && pat && surg) {
+        eventTitle = `${surg.surgeryName} - ${pat.name}`;
       }
     }
 
@@ -299,7 +311,9 @@ export function CalendarEventFormScreen({ route, navigation }) {
         location: location || null,
         recurrenceRule: computedRecurrenceRule,
         forceCreate: forceCreate === true,  // skip conflict check when true
-        diagnoses: selectedDiagnoses
+        diagnoses: selectedDiagnoses,
+        surgeryId: surgeryId || null,
+        surgeryCost: selectedSurgery ? Number(selectedSurgery.defaultSurgeonFee || selectedSurgery.defaultFee || 0) : null
       };
       
       console.log('doSave called with forceCreate:', forceCreate);
@@ -426,6 +440,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
   const selectedAssistant = assistantManualName
     ? { _manualEntry: true, displayName: assistantManualName }
     : ((fetchedAssistant?.id === assistantSurgeonId ? fetchedAssistant : null) || doctors.find(d => d.id === assistantSurgeonId) || null);
+  const selectedSurgery = (fetchedSurgery?.id === surgeryId ? fetchedSurgery : null) || surgeries.find(s => s.id === surgeryId) || null;
 
   // Only show dropdown list when user is actively typing (non-empty search)
   const filteredPatients = patientSearch.trim()
@@ -494,6 +509,38 @@ export function CalendarEventFormScreen({ route, navigation }) {
               <View style={styles.selectedChip}>
                 <Text style={styles.selectedChipText}>👤 {selectedPatient.name} ({selectedPatient.uhid})</Text>
               </View>
+            )}
+
+            {/* ─── Surgery Name Selection ─── */}
+            <Text style={styles.label}>Surgery Name *</Text>
+            {selectedSurgery ? (
+              <View style={styles.selectedChip}>
+                <Text style={styles.selectedChipText}>📋 {selectedSurgery.surgeryName || selectedSurgery.name} ({selectedSurgery.surgeryCode || ''})</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setSurgeryId('');
+                    setFetchedSurgery(null);
+                  }}
+                  style={styles.chipClearBtn}
+                >
+                  <Text style={styles.chipClearText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <SurgeryPicker
+                role={role}
+                onSelect={(s) => {
+                  setSurgeryId(s.surgeryId);
+                  setFetchedSurgery({
+                    id: s.surgeryId,
+                    surgeryName: s.surgeryName,
+                    surgeryCode: s.surgeryCode,
+                    defaultSurgeonFee: s.defaultFee
+                  });
+                }}
+                selectedSurgeries={[]}
+                placeholder="Tap to search and select surgery..."
+              />
             )}
 
             {/* ─── Surgeon Combobox Dropdown ─── */}
