@@ -145,19 +145,10 @@ class DocumentsService {
         break;
     }
 
-    // 4. Return raw HTML if print preview is requested
-    if (isPrintPreview) {
-      return {
-        format: 'html',
-        content: htmlContent
-      };
-    }
-
-    // 5. Generate PDF A4 buffer using Puppeteer
-    const pdfBuffer = await this.renderHtmlToPdf(htmlContent);
-
-    // 6. Archival metadata update
+    // 4. Return raw HTML for frontend rendering
     const generatedFileName = `${documentType}-${targetId}-${Date.now()}.pdf`;
+    
+    // Archival metadata update
     await this.repository.createDocumentGeneration({
       hospitalId,
       documentType,
@@ -178,49 +169,10 @@ class DocumentsService {
     });
 
     return {
-      format: 'pdf',
-      content: pdfBuffer,
+      format: 'html',
+      content: htmlContent,
       fileName: `${documentType}-${targetId}.pdf`
     };
-  }
-
-  async renderHtmlToPdf(htmlContent) {
-    let browser = null;
-    try {
-      let puppeteer;
-      try {
-        puppeteer = require('puppeteer');
-      } catch (e) {
-        throw new Error('PDF generation engine is not installed on this server. Please use HTML Print Preview.');
-      }
-      browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-      const page = await browser.newPage();
-      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-      
-      const pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '0.4in',
-          bottom: '0.4in',
-          left: '0.4in',
-          right: '0.4in'
-        }
-      });
-      return pdfBuffer;
-    } catch (err) {
-      const renderError = new Error(`HTML-to-PDF rendering failed: ${err.message}`);
-      renderError.status = 500;
-      renderError.code = 'ERR_PDF_RENDER_FAILED';
-      throw renderError;
-    } finally {
-      if (browser) {
-        await browser.close();
-      }
-    }
   }
 
   async listDocuments(hospitalId) {

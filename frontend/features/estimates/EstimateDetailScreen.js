@@ -73,18 +73,20 @@ export function EstimateDetailScreen({ route, navigation }) {
       }
 
       if (Platform.OS === 'web') {
-        const arrayBuffer = await response.arrayBuffer();
-        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Estimate-${est.estimateNumber || 'Document'}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        const htmlContent = await response.text();
+        const html2pdf = (await import('html2pdf.js')).default || (await import('html2pdf.js'));
+        
+        const opt = {
+          margin:       0.4,
+          filename:     `Estimate-${est.estimateNumber || 'Document'}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true },
+          jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+        
+        html2pdf().set(opt).from(htmlContent).save();
       } else {
-        Alert.alert('Success', 'PDF generated successfully on server.');
+        Alert.alert('Success', 'HTML fetched. Native PDF generation to be implemented.');
       }
     } catch (err) {
       Alert.alert('Print Failed', err.message);
