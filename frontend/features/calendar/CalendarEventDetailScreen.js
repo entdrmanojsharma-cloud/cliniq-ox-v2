@@ -99,6 +99,19 @@ export function CalendarEventDetailScreen({ route, navigation }) {
     });
   };
 
+  const formatDuration = (mins) => {
+    if (!mins) return '';
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0 && m > 0) {
+      return `${h} hr ${m} min`;
+    } else if (h > 0) {
+      return `${h} hr`;
+    } else {
+      return `${m} min`;
+    }
+  };
+
   const isPast = new Date(event.startTime) < new Date();
   const isPendingOutcome = isPast && (event.eventStatus === 'PENDING' || event.eventStatus === 'APPROVED');
   const isHistorical = isPast && !isPendingOutcome;
@@ -117,51 +130,6 @@ export function CalendarEventDetailScreen({ route, navigation }) {
       
       <View style={styles.detailCard}>
         <View style={styles.row}>
-          <Text style={styles.label}>Event Type</Text>
-          <Text style={[styles.value, styles.badge]}>{event.eventType}</Text>
-        </View>
-
-        <View style={styles.row}>
-          <Text style={styles.label}>Status</Text>
-          <Text style={[styles.value, styles.badge, { backgroundColor: event.eventStatus === 'APPROVED' ? '#dcfce7' : '#fef3c7', color: event.eventStatus === 'APPROVED' ? '#15803d' : '#d97706' }]}>
-            {event.eventStatus}
-          </Text>
-        </View>
-
-        <View style={styles.row}>
-          <Text style={styles.label}>Scheduled From</Text>
-          <Text style={styles.value}>{formatTime(event.startTime)}</Text>
-        </View>
-
-        <View style={styles.row}>
-          <Text style={styles.label}>Scheduled To</Text>
-          <Text style={styles.value}>{formatTime(event.endTime)}</Text>
-        </View>
-
-        {event.durationMinutes && (
-          <View style={styles.row}>
-            <Text style={styles.label}>Duration</Text>
-            <Text style={styles.value}>{event.durationMinutes} minutes</Text>
-          </View>
-        )}
-
-        {event.location && (
-          <View style={styles.row}>
-            <Text style={styles.label}>Location / Room</Text>
-            <Text style={styles.value}>{event.location}</Text>
-          </View>
-        )}
-
-        {event.otRoom && (
-          <View style={styles.row}>
-            <Text style={styles.label}>OT Room</Text>
-            <Text style={styles.value}>{event.otRoom.roomName}</Text>
-          </View>
-        )}
-
-        <View style={styles.divider} />
-
-        <View style={styles.row}>
           <Text style={styles.label}>Patient</Text>
           <Text style={styles.value}>{event.patient ? `${event.patient.name} (${event.patient.uhid})` : 'N/A'}</Text>
         </View>
@@ -179,12 +147,52 @@ export function CalendarEventDetailScreen({ route, navigation }) {
 
         {(event.surgery || (event.estimate?.estimateSurgeries && event.estimate.estimateSurgeries.length > 0)) && (
           <View style={styles.row}>
-            <Text style={styles.label}>Surgery</Text>
+            <Text style={styles.label}>Surgery Name</Text>
             <Text style={styles.value}>
               {event.surgery?.surgeryName 
                 ? `${event.surgery.surgeryName} (${event.surgery.surgeryCode || ''})` 
                 : event.estimate.estimateSurgeries.map(s => s.surgery?.surgeryName || s.surgeryName || 'Unspecified').join(', ')}
             </Text>
+          </View>
+        )}
+
+        <View style={styles.divider} />
+
+        <View style={styles.row}>
+          <Text style={styles.label}>Event Type</Text>
+          <Text style={[styles.value, styles.badge]}>{event.eventType}</Text>
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.label}>Status</Text>
+          <Text style={[styles.value, styles.badge, { backgroundColor: event.eventStatus === 'APPROVED' ? '#dcfce7' : '#fef3c7', color: event.eventStatus === 'APPROVED' ? '#15803d' : '#d97706' }]}>
+            {event.eventStatus === 'PENDING' ? 'PENDING (Awaiting Approval)' : event.eventStatus}
+          </Text>
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.label}>Scheduled From</Text>
+          <Text style={styles.value}>{formatTime(event.startTime)}</Text>
+        </View>
+
+        {event.durationMinutes && (
+          <View style={styles.row}>
+            <Text style={styles.label}>Duration</Text>
+            <Text style={styles.value}>{formatDuration(event.durationMinutes)}</Text>
+          </View>
+        )}
+
+        {event.location && (
+          <View style={styles.row}>
+            <Text style={styles.label}>Location / Room</Text>
+            <Text style={styles.value}>{event.location}</Text>
+          </View>
+        )}
+
+        {event.otRoom && (
+          <View style={styles.row}>
+            <Text style={styles.label}>OT Room</Text>
+            <Text style={styles.value}>{event.otRoom.roomName}</Text>
           </View>
         )}
 
