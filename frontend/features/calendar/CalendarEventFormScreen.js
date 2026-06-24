@@ -16,11 +16,12 @@ import { TimeDropdown } from '../../shared/components/TimeDropdown';
 import { SearchableDropdown } from '../../shared/components/SearchableDropdown';
 import { theme } from '../../shared/styles/theme';
 import { api } from '../../shared/utils/api';
+import { getLocalDateString } from '../../shared/utils/date';
 
 const getInitialDate = (isoString) => {
   if (!isoString) return '';
   try {
-    return new Date(isoString).toISOString().split('T')[0];
+    return getLocalDateString(new Date(isoString));
   } catch {
     return '';
   }
@@ -87,7 +88,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
   const [eventType, setEventType] = useState(existing.eventType || '');
   const [title, setTitle] = useState(existing.title || '');
 
-  const defaultDate = storeSelectedDate || new Date().toISOString().split('T')[0];
+  const defaultDate = storeSelectedDate || getLocalDateString(new Date());
   const [startDate, setStartDate] = useState(existing.startTime ? getInitialDate(existing.startTime) : defaultDate);
   const [startTimeVal, setStartTimeVal] = useState(existing.startTime ? getInitialTime(existing.startTime) : '');
   const [durationMinutes, setDurationMinutes] = useState(existing.durationMinutes ? String(existing.durationMinutes) : '60');

@@ -13,6 +13,7 @@ import { theme } from '../../shared/styles/theme';
 import { useResponsive } from '../../shared/hooks/useResponsive';
 import { DobDropdownPicker } from '../../shared/components/DobDropdownPicker';
 import { getEventBands } from './calendarColorHelper';
+import { parseLocalDate, getLocalDateString } from '../../shared/utils/date';
 
 // ─── Frontend occurrence expansion ───────────────────────────────────────────
 const getFrontOccurrences = (event, startLimit, endLimit) => {
@@ -60,7 +61,7 @@ const getFrontOccurrences = (event, startLimit, endLimit) => {
     }
 
     if (isMatch && currentEnd >= startLimit && currentStart <= endLimit) {
-      const occurrenceId = `${event.id}_occ_${currentStart.toISOString().split('T')[0]}`;
+      const occurrenceId = `${event.id}_occ_${getLocalDateString(currentStart)}`;
       occurrences.push({
         ...event,
         occurrenceId,
@@ -140,12 +141,12 @@ export function CalendarScreen({ navigation }) {
 
   const getWeekDays = () => {
     const days = [];
-    const base = new Date(weekStartDate);
+    const base = parseLocalDate(weekStartDate);
     for (let i = 0; i < 7; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
-      const dayCount = expandedEvents.filter(e => new Date(e.startTime).toISOString().split('T')[0] === dateStr).length;
+      const dateStr = getLocalDateString(d);
+      const dayCount = expandedEvents.filter(e => getLocalDateString(new Date(e.startTime)) === dateStr).length;
       days.push({
         dateStr,
         dayNum: d.getDate(),
@@ -159,7 +160,7 @@ export function CalendarScreen({ navigation }) {
   const weekDays = getWeekDays();
 
   const filteredEvents = expandedEvents.filter(item => {
-    const eventDate = new Date(item.startTime).toISOString().split('T')[0];
+    const eventDate = getLocalDateString(new Date(item.startTime));
     if (eventDate !== selectedDate) return false;
     if (!searchText) return true;
     const s = searchText.toLowerCase();
@@ -312,7 +313,7 @@ export function CalendarScreen({ navigation }) {
           contentContainerStyle={[styles.listContent, isMobile && styles.listContentMobile]}
           renderItem={({ item }) => {
             const isPast = new Date(item.startTime) < new Date();
-            const isTomorrow = new Date(item.startTime).toISOString().split('T')[0] === new Date(new Date().getTime() + 86400000).toISOString().split('T')[0];
+            const isTomorrow = getLocalDateString(new Date(item.startTime)) === getLocalDateString(new Date(new Date().getTime() + 86400000));
             const isPendingOutcome = isPast && (item.eventStatus === 'PENDING' || item.eventStatus === 'APPROVED');
             const isHistorical = isPast && !isPendingOutcome;
 

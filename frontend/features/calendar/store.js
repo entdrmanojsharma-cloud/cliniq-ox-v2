@@ -5,9 +5,10 @@
 
 import { create } from 'zustand';
 import { api } from '../../shared/utils/api';
+import { parseLocalDate, getLocalDateString } from '../../shared/utils/date';
 
 const getTodayString = () => {
-  return new Date().toISOString().split('T')[0];
+  return getLocalDateString(new Date());
 };
 
 export const useCalendarStore = create((set, get) => ({
@@ -20,18 +21,18 @@ export const useCalendarStore = create((set, get) => ({
   
   nextWeek: () => {
     const { weekStartDate } = get();
-    const d = new Date(weekStartDate);
+    const d = parseLocalDate(weekStartDate);
     d.setDate(d.getDate() + 7);
-    const newDateStr = d.toISOString().split('T')[0];
+    const newDateStr = getLocalDateString(d);
     set({ weekStartDate: newDateStr, selectedDate: newDateStr });
     get().fetchEvents();
   },
   
   prevWeek: () => {
     const { weekStartDate } = get();
-    const d = new Date(weekStartDate);
+    const d = parseLocalDate(weekStartDate);
     d.setDate(d.getDate() - 7);
-    const newDateStr = d.toISOString().split('T')[0];
+    const newDateStr = getLocalDateString(d);
     set({ weekStartDate: newDateStr, selectedDate: newDateStr });
     get().fetchEvents();
   },
@@ -40,7 +41,7 @@ export const useCalendarStore = create((set, get) => ({
     set({ loading: true });
     try {
       const { weekStartDate } = get();
-      const start = new Date(weekStartDate);
+      const start = parseLocalDate(weekStartDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(start);
       end.setDate(end.getDate() + 6);

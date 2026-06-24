@@ -7,6 +7,7 @@ import { theme } from '../../shared/styles/theme';
 import { useResponsive } from '../../shared/hooks/useResponsive';
 import { api } from '../../shared/utils/api';
 import { useCalendarStore } from './store';
+import { getLocalDateString } from '../../shared/utils/date';
 
 const formatTime = (isoString) => {
   if (!isoString) return '';
@@ -68,7 +69,7 @@ export function FutureSurgeriesScreen({ navigation }) {
 
   // Group events by date
   const groupedEvents = events.reduce((acc, event) => {
-    const dateStr = new Date(event.startTime).toISOString().split('T')[0];
+    const dateStr = getLocalDateString(new Date(event.startTime));
     if (!acc[dateStr]) acc[dateStr] = [];
     acc[dateStr].push(event);
     return acc;
@@ -93,7 +94,7 @@ export function FutureSurgeriesScreen({ navigation }) {
     }
 
     const isPast = new Date(item.startTime) < new Date();
-    const isTomorrow = new Date(item.startTime).toISOString().split('T')[0] === new Date(new Date().getTime() + 86400000).toISOString().split('T')[0];
+    const isTomorrow = getLocalDateString(new Date(item.startTime)) === getLocalDateString(new Date(new Date().getTime() + 86400000));
     const isPendingOutcome = isPast && (item.eventStatus === 'PENDING' || item.eventStatus === 'APPROVED');
     const isHistorical = isPast && !isPendingOutcome;
 

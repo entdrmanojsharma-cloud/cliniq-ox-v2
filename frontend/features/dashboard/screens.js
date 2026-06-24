@@ -16,6 +16,7 @@ import { useInvoicesStore } from '../invoices/store';
 import { useReceiptsStore } from '../receipts/store';
 import { useEstimatesStore } from '../estimates/store';
 import { getEventBands } from '../calendar/calendarColorHelper';
+import { parseLocalDate, getLocalDateString } from '../../shared/utils/date';
 
 /* ─────────────────────────────────────────────────────────────
    Theme picker modal
@@ -893,7 +894,7 @@ const getFrontOccurrences = (event, startLimit, endLimit) => {
     }
 
     if (isMatch && currentEnd >= startLimit && currentStart <= endLimit) {
-      const occurrenceId = `${event.id}_occ_${currentStart.toISOString().split('T')[0]}`;
+      const occurrenceId = `${event.id}_occ_${getLocalDateString(currentStart)}`;
       occurrences.push({
         ...event,
         occurrenceId,
@@ -940,7 +941,7 @@ export function DashboardScreen({ navigation }) {
   // Calendar View states
   const [viewMode, setViewMode] = useState('week'); // 'month' or 'week'
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString(new Date()));
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [allEvents, setAllEvents] = useState([]);
   
@@ -973,10 +974,10 @@ export function DashboardScreen({ navigation }) {
     setStatsLoading(true);
     try {
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
+      const todayStr = getLocalDateString(now);
       
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      const startOfMonth = getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1));
+      const endOfMonth = getLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
       // Calculate calendar view range to load events
       let calStart, calEnd;
@@ -1013,13 +1014,13 @@ export function DashboardScreen({ navigation }) {
       const totalPatients = monthStatsRes.patients?.totalCount || 0;
       const newPatientsThisMonth = monthStatsRes.patients?.count || 0;
       
-      const todayEvents = events.filter(e => e.startTime.split('T')[0] === todayStr);
+      const todayEvents = events.filter(e => getLocalDateString(new Date(e.startTime)) === todayStr);
       const todayAppointmentsCount = todayEvents.length;
       const todaySurgeriesCount = todayEvents.filter(e => e.eventType === 'SURGERY').length;
       const todayOpdCount = todayEvents.filter(e => e.eventType === 'OPD' || e.eventType === 'IPD').length;
       
       const upcomingSurgeriesCount = events.filter(e => {
-        const eDate = e.startTime.split('T')[0];
+        const eDate = getLocalDateString(new Date(e.startTime));
         return e.eventType === 'SURGERY' && eDate >= todayStr;
       }).length;
 
@@ -1123,7 +1124,7 @@ export function DashboardScreen({ navigation }) {
   };
 
   const handleCalendarPress = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString(new Date());
     useCalendarStore.getState().setSelectedDate(todayStr);
     useCalendarStore.getState().setWeekStartDate(todayStr);
     useCalendarStore.getState().fetchEvents();
@@ -1146,7 +1147,7 @@ export function DashboardScreen({ navigation }) {
   const handleToday = () => {
     const today = new Date();
     setCurrentDate(today);
-    setSelectedDate(today.toISOString().split('T')[0]);
+    setSelectedDate(getLocalDateString(today));
     setViewMode('week');
   };
 
@@ -1170,7 +1171,7 @@ export function DashboardScreen({ navigation }) {
     setCurrentDate(d);
   };
 
-  let selectedDateEvents = expandedEvents.filter(e => e.startTime.split('T')[0] === selectedDate);
+  let selectedDateEvents = expandedEvents.filter(e => getLocalDateString(new Date(e.startTime)) === selectedDate);
   if (selectedCategory) {
     selectedDateEvents = selectedDateEvents.filter(e => {
       const t = e.eventType;
@@ -1180,9 +1181,9 @@ export function DashboardScreen({ navigation }) {
     });
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayEvents = expandedEvents.filter(e => e.startTime.split('T')[0] === todayStr);
-  const upcomingSurgeries = expandedEvents.filter(e => e.eventType === 'SURGERY' && e.startTime.split('T')[0] >= todayStr).slice(0, 5);
+  const todayStr = getLocalDateString(new Date());
+  const todayEvents = expandedEvents.filter(e => getLocalDateString(new Date(e.startTime)) === todayStr);
+  const upcomingSurgeries = expandedEvents.filter(e => e.eventType === 'SURGERY' && getLocalDateString(new Date(e.startTime)) >= todayStr).slice(0, 5);
 
   const formatTime = (iso) =>
     new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
@@ -1380,7 +1381,7 @@ export function DashboardScreen({ navigation }) {
                   const isToday = cellDateStr === todayStr;
                   
                   // Filter events for this cell date
-                  const cellEvents = expandedEvents.filter(e => e.startTime.split('T')[0] === cellDateStr);
+                  const cellEvents = expandedEvents.filter(e => getLocalDateString(new Date(e.startTime)) === cellDateStr);
 
                   return (
                     <TouchableOpacity 
@@ -1427,11 +1428,11 @@ export function DashboardScreen({ navigation }) {
           {viewMode === 'week' && (
             <View style={styles.weekCalendarContainer}>
               {weekDaysList.map((day, idx) => {
-                const cellDateStr = day.toISOString().split('T')[0];
+                const cellDateStr = getLocalDateString(day);
                 const isSelected = selectedDate === cellDateStr;
                 const isToday = cellDateStr === todayStr;
                 
-                const cellEvents = weekEvents.filter(e => e.startTime.split('T')[0] === cellDateStr);
+                const cellEvents = weekEvents.filter(e => getLocalDateString(new Date(e.startTime)) === cellDateStr);
                 
                 const routineCount = cellEvents.filter(e => e.eventType === 'OPD' || e.eventType === 'IPD').length;
                 const surgeryCount = cellEvents.filter(e => e.eventType === 'SURGERY').length;
