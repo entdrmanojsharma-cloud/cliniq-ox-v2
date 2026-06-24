@@ -641,8 +641,8 @@ export function PatientDetailScreen({ route, navigation }) {
           }
 
           const scheduledDate = new Date(event.startTime);
-          const formattedDate = scheduledDate.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-          const formattedTime = scheduledDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+          const formattedDate = scheduledDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+          const formattedTime = scheduledDate.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
 
           return (
             <View key={event.id} style={styles.eventCard}>
@@ -661,7 +661,7 @@ export function PatientDetailScreen({ route, navigation }) {
                   </View>
                 ) : (
                   <>
-                    <Text style={theme.typography.caption}>Scheduled: {new Date(event.startTime).toLocaleDateString()}</Text>
+                    <Text style={theme.typography.caption}>Scheduled: {new Date(event.startTime).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</Text>
                     <Text style={theme.typography.caption}>Status: {event.eventStatus}</Text>
                   </>
                 )}

@@ -5,21 +5,34 @@ class DashboardService {
 
   _parseDateRange(from, to) {
     const now = new Date();
+    // Shift current server time to get components in IST (+05:30)
+    const shiftedNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    const todayY = shiftedNow.getUTCFullYear();
+    const todayM = shiftedNow.getUTCMonth();
+    const todayD = shiftedNow.getUTCDate();
 
-    // Default: today
-    let start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    let end   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    // Default: today in IST
+    let start = new Date(Date.UTC(todayY, todayM, todayD, 0, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
+    let end   = new Date(Date.UTC(todayY, todayM, todayD, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000);
 
     if (from) {
       const parsed = new Date(from);
-      if (!isNaN(parsed)) {
-        start = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0);
+      if (!isNaN(parsed.getTime())) {
+        const shifted = new Date(parsed.getTime() + 5.5 * 60 * 60 * 1000);
+        const y = shifted.getUTCFullYear();
+        const m = shifted.getUTCMonth();
+        const d = shifted.getUTCDate();
+        start = new Date(Date.UTC(y, m, d, 0, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
       }
     }
     if (to) {
       const parsed = new Date(to);
-      if (!isNaN(parsed)) {
-        end = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999);
+      if (!isNaN(parsed.getTime())) {
+        const shifted = new Date(parsed.getTime() + 5.5 * 60 * 60 * 1000);
+        const y = shifted.getUTCFullYear();
+        const m = shifted.getUTCMonth();
+        const d = shifted.getUTCDate();
+        end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000);
       }
     }
 

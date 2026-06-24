@@ -53,6 +53,7 @@ export function NotificationsScreen({ navigation }) {
   const renderItem = ({ item }) => {
     const formattedDate = item.createdAt
       ? new Date(item.createdAt).toLocaleDateString('en-IN', {
+          timeZone: 'Asia/Kolkata',
           day: '2-digit',
           month: 'short',
           hour: '2-digit',

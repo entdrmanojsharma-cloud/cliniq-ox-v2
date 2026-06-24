@@ -1461,10 +1461,10 @@ export function DashboardScreen({ navigation }) {
                   >
                     <TouchableOpacity style={styles.weekColumnHeader} onPress={() => { setSelectedDate(cellDateStr); setSelectedCategory(null); }}>
                       <Text style={[styles.weekDayLabel, isToday && styles.weekDayTodayText]}>
-                        {day.toLocaleDateString('en-IN', { weekday: 'short' })}
+                        {day.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short' })}
                       </Text>
                       <Text style={[styles.weekDayNum, isToday && styles.weekDayNumToday]}>
-                        {day.getDate()}
+                        {Number(cellDateStr.split('-')[2])}
                       </Text>
                     </TouchableOpacity>
 

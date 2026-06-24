@@ -11,12 +11,12 @@ import { getLocalDateString } from '../../shared/utils/date';
 
 const formatTime = (isoString) => {
   if (!isoString) return '';
-  return new Date(isoString).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  return new Date(isoString).toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
 };
 
 const formatDateHeader = (isoString) => {
   if (!isoString) return '';
-  return new Date(isoString).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(isoString).toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 export function FutureSurgeriesScreen({ navigation }) {

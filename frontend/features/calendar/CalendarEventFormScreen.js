@@ -16,7 +16,7 @@ import { TimeDropdown } from '../../shared/components/TimeDropdown';
 import { SearchableDropdown } from '../../shared/components/SearchableDropdown';
 import { theme } from '../../shared/styles/theme';
 import { api } from '../../shared/utils/api';
-import { getLocalDateString } from '../../shared/utils/date';
+import { getLocalDateString, getLocalTimeString, parseCombinedDateTimeToIST } from '../../shared/utils/date';
 
 const getInitialDate = (isoString) => {
   if (!isoString) return '';
@@ -30,10 +30,7 @@ const getInitialDate = (isoString) => {
 const getInitialTime = (isoString) => {
   if (!isoString) return '';
   try {
-    const d = new Date(isoString);
-    const hours = String(d.getHours()).padStart(2, '0');
-    const mins = String(d.getMinutes()).padStart(2, '0');
-    return `${hours}:${mins}`;
+    return getLocalTimeString(new Date(isoString));
   } catch {
     return '';
   }
@@ -235,10 +232,12 @@ export function CalendarEventFormScreen({ route, navigation }) {
     let endTimeCombined = endTimeVal.trim() ? `${startDate}T${endTimeVal}` : '';
 
     if (!endTimeCombined && durationMinutes.trim()) {
-      const startMs = new Date(startTimeCombined).getTime();
+      const startDt = parseCombinedDateTimeToIST(startTimeCombined);
+      const startMs = startDt.getTime();
       const durMs = parseInt(durationMinutes, 10) * 60000;
       if (!isNaN(startMs) && !isNaN(durMs)) {
-        endTimeCombined = new Date(startMs + durMs).toISOString().slice(0, 16);
+        const endDt = new Date(startMs + durMs);
+        endTimeCombined = `${getLocalDateString(endDt)}T${getLocalTimeString(endDt)}`;
       }
     }
 
@@ -256,7 +255,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
 
     if (!eventTitle) return Alert.alert('Validation Error', 'Title is required.');
 
-    const startDt = new Date(startTimeCombined);
+    const startDt = parseCombinedDateTimeToIST(startTimeCombined);
     if (!id && startDt < new Date()) {
       return Alert.alert('Validation Error', 'Cannot create an event in the past. Please select a future date and time.');
     }
@@ -270,7 +269,7 @@ export function CalendarEventFormScreen({ route, navigation }) {
       
       let ruleStr = `FREQ=WEEKLY;BYDAY=${activeDays.join(',')}`;
       if (repeatUntil !== 'FOREVER') {
-        const startD = new Date(startDate);
+        const startD = parseLocalDate(startDate);
         const untilD = new Date(startD);
         if (repeatUntil === '1_MONTH') {
           untilD.setMonth(untilD.getMonth() + 1);
@@ -290,8 +289,8 @@ export function CalendarEventFormScreen({ route, navigation }) {
       const payload = {
         title: eventTitle,
         eventType,
-        startTime: new Date(startTimeCombined).toISOString(),
-        endTime: new Date(endTimeCombined).toISOString(),
+        startTime: parseCombinedDateTimeToIST(startTimeCombined).toISOString(),
+        endTime: parseCombinedDateTimeToIST(endTimeCombined).toISOString(),
         patientId: patientId || null,
         doctorId: doctorId || null,
         doctorManualName: doctorManualName || null,   // free-text fallback

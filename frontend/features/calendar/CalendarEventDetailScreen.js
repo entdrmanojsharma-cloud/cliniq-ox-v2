@@ -9,6 +9,7 @@ import { api } from '../../shared/utils/api';
 import { theme } from '../../shared/styles/theme';
 import { DateDropdown } from '../../shared/components/DateDropdown';
 import { TimeDropdown } from '../../shared/components/TimeDropdown';
+import { parseCombinedDateTimeToIST } from '../../shared/utils/date';
 
 export function CalendarEventDetailScreen({ route, navigation }) {
   const { id } = route.params;
@@ -53,7 +54,7 @@ export function CalendarEventDetailScreen({ route, navigation }) {
     }
     try {
       setLoading(true);
-      const startDT = new Date(`${newDate}T${newTime}`);
+      const startDT = parseCombinedDateTimeToIST(`${newDate}T${newTime}`);
       const duration = event.durationMinutes || 30;
       const endDT = new Date(startDT.getTime() + duration * 60000);
       
@@ -92,6 +93,7 @@ export function CalendarEventDetailScreen({ route, navigation }) {
 
   const formatTime = (isoString) => {
     return new Date(isoString).toLocaleString('en-US', {
+      timeZone: 'Asia/Kolkata',
       weekday: 'short', month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit', hour12: true
     });

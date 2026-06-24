@@ -1,7 +1,13 @@
-/* 
-  Purpose: Business service orchestration layer for the reports module.
-  Responsibility: Map surgery data and billing reports, calculate fees, and generate CSV outputs.
-*/
+const getIstDateString = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  const shifted = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 class ReportsService {
   constructor(repository, prisma) {
@@ -11,16 +17,34 @@ class ReportsService {
 
   _parseDateRange(from, to) {
     const now = new Date();
-    let start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0); // start of month
-    let end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999); // end of month
+    // Shift current server time to get components in IST (+05:30)
+    const shiftedNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    const todayY = shiftedNow.getUTCFullYear();
+    const todayM = shiftedNow.getUTCMonth();
+
+    // Default: start/end of current month in IST
+    let start = new Date(Date.UTC(todayY, todayM, 1, 0, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
+    let end   = new Date(Date.UTC(todayY, todayM + 1, 0, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000);
 
     if (from) {
       const parsed = new Date(from);
-      if (!isNaN(parsed)) start = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 0, 0, 0, 0);
+      if (!isNaN(parsed.getTime())) {
+        const shifted = new Date(parsed.getTime() + 5.5 * 60 * 60 * 1000);
+        const y = shifted.getUTCFullYear();
+        const m = shifted.getUTCMonth();
+        const d = shifted.getUTCDate();
+        start = new Date(Date.UTC(y, m, d, 0, 0, 0, 0) - 5.5 * 60 * 60 * 1000);
+      }
     }
     if (to) {
       const parsed = new Date(to);
-      if (!isNaN(parsed)) end = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999);
+      if (!isNaN(parsed.getTime())) {
+        const shifted = new Date(parsed.getTime() + 5.5 * 60 * 60 * 1000);
+        const y = shifted.getUTCFullYear();
+        const m = shifted.getUTCMonth();
+        const d = shifted.getUTCDate();
+        end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999) - 5.5 * 60 * 60 * 1000);
+      }
     }
     return { start, end };
   }
@@ -70,7 +94,7 @@ class ReportsService {
 
       return {
         eventId: event.id,
-        date: event.startTime.toISOString().split('T')[0],
+        date: getIstDateString(event.startTime),
         patientName: event.patient?.name || 'N/A',
         uhid: event.patient?.uhid || 'N/A',
         surgeries: surgeriesList.join('; '),
@@ -94,7 +118,7 @@ class ReportsService {
       return {
         invoiceId: inv.id,
         invoiceNumber: inv.invoiceNumber,
-        date: inv.createdAt.toISOString().split('T')[0],
+        date: getIstDateString(inv.createdAt),
         patientName: inv.patient?.name || 'N/A',
         uhid: inv.patient?.uhid || 'N/A',
         surgeonName: surgDr ? `Dr. ${surgDr.firstName} ${surgDr.lastName}` : 'N/A',

@@ -143,14 +143,13 @@ export function CalendarScreen({ navigation }) {
     const days = [];
     const base = parseLocalDate(weekStartDate);
     for (let i = 0; i < 7; i++) {
-      const d = new Date(base);
-      d.setDate(base.getDate() + i);
+      const d = new Date(base.getTime() + i * 24 * 60 * 60 * 1000);
       const dateStr = getLocalDateString(d);
       const dayCount = expandedEvents.filter(e => getLocalDateString(new Date(e.startTime)) === dateStr).length;
       days.push({
         dateStr,
-        dayNum: d.getDate(),
-        dayName: d.toLocaleDateString('en-US', { weekday: isMobile ? 'narrow' : 'short' }),
+        dayNum: Number(dateStr.split('-')[2]),
+        dayName: d.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', weekday: isMobile ? 'narrow' : 'short' }),
         count: dayCount
       });
     }
@@ -175,17 +174,19 @@ export function CalendarScreen({ navigation }) {
   });
 
   const formatTime = (iso) =>
-    new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    new Date(iso).toLocaleTimeString([], { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
 
   // Week range label
   const weekRangeLabel = (() => {
-    const s = new Date(weekStartDate);
-    const e = new Date(weekStartDate);
-    e.setDate(e.getDate() + 6);
+    const s = parseLocalDate(weekStartDate);
+    const e = new Date(s.getTime() + 6 * 24 * 60 * 60 * 1000);
+    const sLabel = s.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric' });
+    const eDay = Number(getLocalDateString(e).split('-')[2]);
+    const eLabel = e.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', month: 'short', day: 'numeric', year: 'numeric' });
     if (isMobile) {
-      return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.getDate()}`;
+      return `${sLabel} – ${eDay}`;
     }
-    return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    return `${sLabel} – ${eLabel}`;
   })();
 
   return (
